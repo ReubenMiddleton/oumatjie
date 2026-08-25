@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Oumatjie</string>
+    <string name="pdf_default_title">Document</string>
+    <string name="pdf_back_to_mail">Back to your mail</string>
+    <string name="pdf_error_title">This document did not open</string>
+    <string name="pdf_error_message">It may be damaged, or something went wrong. You can go back and try opening it again.</string>
+</resources>

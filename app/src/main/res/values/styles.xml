@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material3 (not a bare platform theme) because PdfViewerActivity hosts androidx.pdf's
+         PdfViewerFragment, which needs an AppCompat/Material3 theme to inflate against. -->
+    <style name="Theme.Oumatjie" parent="Theme.Material3.Light.NoActionBar">
+        <item name="android:fontFamily">@font/atkinson_hyperlegible</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@color/oumatjie_background</item>
+        <item name="android:statusBarColor">@color/oumatjie_background</item>
+        <item name="colorPrimary">@color/oumatjie_primary</item>
+        <item name="colorOnPrimary">@color/oumatjie_on_primary</item>
+        <item name="android:colorBackground">@color/oumatjie_background</item>
+        <item name="colorSurface">@color/oumatjie_background</item>
+        <item name="colorOnSurface">@color/oumatjie_on_background</item>
+    </style>
+
+    <!-- Cold-start splash, applied only to MainActivity (see AndroidManifest.xml) — not at the
+         <application> level, since PdfViewerActivity relies on inheriting the real
+         Theme.Oumatjie (Material3) to host androidx.pdf's fragment, not a SplashScreen theme.
+         windowSplashScreenAnimatedIcon is intentionally left unset: both the platform API and
+         this compat library default it to the app's own adaptive launcher icon
+         (android:icon in AndroidManifest.xml), which is exactly what should show here — no
+         separate splash-specific asset needed. See docs/DECISIONS.md, "Splash screen". -->
+    <style name="Theme.Oumatjie.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/oumatjie_background</item>
+        <item name="postSplashScreenTheme">@style/Theme.Oumatjie</item>
+    </style>
+</resources>
+

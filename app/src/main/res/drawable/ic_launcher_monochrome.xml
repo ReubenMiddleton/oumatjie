@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Same envelope glyph as ic_launcher_foreground, for Android 13+ themed (Material You)
+     icons. The color here is a placeholder — the system replaces it with the user's chosen
+     tint, which is why this is line art rather than relying on two-tone fill/stroke contrast
+     the way the colored foreground can. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M30,34L78,34A6,6 0 0 1 84,40L84,68A6,6 0 0 1 78,74L30,74A6,6 0 0 1 24,68L24,40A6,6 0 0 1 30,34ZM24,34L54,58L84,34" />
+</vector>

@@ -1,0 +1,60 @@
+name: Claude CI Watch
+
+# Runs once a day (and on demand) so build/test health gets checked even when nobody's around
+# to notice a red run. If the latest CI run on the default branch is failing, Claude diagnoses
+# it and opens a pull request with a fix for review — it does NOT auto-merge. If CI is green,
+# it does nothing (no noisy daily comment). This is a first draft, not yet exercised against a
+# real failure — expect to tune the prompt/tool list once it's actually run once or twice.
+#
+# Deliberately separate from claude.yml (the @claude-mention responder) so this can be reasoned
+# about, disabled, or re-scheduled independently.
+
+on:
+  schedule:
+    # 09:00 UTC daily — cheap (well inside GitHub's free Actions minutes for a private repo;
+    # see docs/DECISIONS.md if this ever needs revisiting) and frequent enough that a break
+    # doesn't sit unnoticed for long.
+    - cron: "0 9 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ci-watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: read
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        env:
+          # Read-only use (checking run status) — does not affect the action's own git/PR
+          # authentication, which stays on the Claude GitHub App by default. Do NOT add
+          # `github_token: ${{ secrets.GITHUB_TOKEN }}` as an *input* to the action below —
+          # pushes made with that default token don't trigger downstream CI on the resulting
+          # PR, which would defeat the point of this workflow. See docs/AI_ASSISTANT.md-style
+          # reasoning in docs/DECISIONS.md for why the GitHub App token is used instead.
+          GH_TOKEN: ${{ github.token }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Check the most recent "CI" workflow run on the default branch
+            (`gh run list --workflow=ci.yml --branch=main --limit=1`).
+
+            If it succeeded, do nothing further and end the run.
+
+            If it failed: look at the failure logs (`gh run view --log-failed`), diagnose the
+            root cause by reading the relevant source, make the smallest reasonable fix, run
+            the affected tests locally to confirm the fix works, then create a new branch,
+            commit the fix with a clear message explaining the failure and the fix, push it,
+            and open a pull request against main describing what broke and why the fix
+            addresses it. Do not merge the pull request yourself. Do not touch unrelated code.
+          claude_args: |
+            --max-turns 30
+            --allowedTools "Bash,Read,Edit,Write,Glob,Grep"

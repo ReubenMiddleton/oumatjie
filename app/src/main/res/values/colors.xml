@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mirrors the Compose palette in ui/theme/Theme.kt (OumatjieColors). Kept as plain XML
+         resources too because the PDF viewer screen is a classic View/Fragment screen, not
+         Compose, and needs to look consistent with it. Keep these two in sync by hand. -->
+    <color name="oumatjie_primary">#FF174E3A</color>
+    <color name="oumatjie_on_primary">#FFFFFFFF</color>
+    <color name="oumatjie_background">#FFFFFDF7</color>
+    <color name="oumatjie_on_background">#FF1C1B18</color>
+    <color name="oumatjie_error_container">#FFFBE4E1</color>
+    <color name="oumatjie_on_error_container">#FF5A1414</color>
+</resources>
