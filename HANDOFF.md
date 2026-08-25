@@ -44,7 +44,33 @@ web view — a real, from-scratch native app.
    submission is actually in progress; both are real drafts, not placeholders, but the privacy
    policy specifically needs a legal review before publishing (see its own drafting note).
 
-## Current state, as of 2026-08-25 (three sessions total — see below)
+## Current state, as of 2026-08-25 (four sessions total — see below)
+
+**The repo is now live on GitHub, with CI and an autonomous GitHub Action, both working** —
+`https://github.com/ReubenMiddleton/oumatjie` (private). This is the single biggest state change
+in the project's history and supersedes several "not yet done" notes further down this file that
+predate it:
+- `.github/workflows/ci.yml` runs unit tests + a debug build on every push/PR.
+- `.github/workflows/claude.yml` responds to `@claude` mentions in issues/PRs, authenticated via
+  a subscription token (`CLAUDE_CODE_OAUTH_TOKEN`), not a metered API key.
+- `.github/workflows/claude-ci-watch.yml` checks CI health once daily and opens a fix PR (never
+  auto-merges) if something's broken — meant specifically for stretches with nobody watching.
+- **The very first real CI run immediately found and this session fixed a genuine bug**:
+  `SessionViewModel` was calling `AuthManager.authorize()` twice per sign-in instead of once
+  (`GmailMailRepository.fetchAccountEmail()` was silently re-deriving its own token instead of
+  reusing the one already granted). Two full sessions of careful hand-review missed this; the
+  first real compiler run caught it immediately. See DECISIONS.md's "First real CI run found a
+  real bug hand-review missed" — read it, it's the clearest evidence yet for why every
+  "hand-verified, not compiled" caveat in this file matters and shouldn't be treated as probably-fine.
+- **`CLAUDE.md`** (repo root, new) now exists specifically so Claude Code and the GitHub Actions
+  above don't have to rediscover this file from scratch — it's a short pointer to this file, to
+  AGENTS.md's standing rules, and to a prioritized list of things only a local session (with a
+  real compiler, shell, and network) can do that no session before it could. Read it if you're
+  Claude Code picking this project up locally for the first time.
+- Full setup reasoning — why direct git push from a cloud sandbox wasn't possible, why a
+  subscription token instead of a metered key, why PRs instead of auto-merge, why the scheduled
+  workflow deliberately avoids the default `GITHUB_TOKEN` — is in DECISIONS.md's "CI/CD and
+  autonomous GitHub Action set up" entry. NEEDS_YOUR_INPUT.md's matching entry is now Resolved.
 
 **A 2026-08-25 session** worked autonomously on self-selected, no-input-needed follow-ups while
 the project owner was away (explicit instruction: "do as much as possible without my input").
@@ -160,46 +186,41 @@ NEEDS_YOUR_INPUT.md). No Google Cloud project exists either (SETUP.md §3 is the
 read-through audit (2026-08-25 session, see above) fixed what it could find by reading source, but
 that's not a substitute for turning TalkBack on and listening. Still the top open gap.
 
-**Nothing in this repository has been committed to git yet.** `git log` on `master` should still
-return "no commits yet" — this session did not commit anything either, per the user's explicit,
-standing instruction that committing is their call to make (see AGENTS.md). Every file — the
-entire app, all documentation — exists only on disk. This is the single highest-priority
-housekeeping item below; flagging it here so it isn't missed.
+**The repository is now committed and pushed — see the top of this section.** `git log` on
+`main` has real history as of 2026-08-25; this superseded the long-standing "nothing is
+committed" gap that every earlier version of this file flagged as top priority.
 
 ## Recommended next steps, in priority order
 
-1. **Run a real build.** `./gradlew testDebugUnitTest assembleDebug` (and ideally
-   `assembleRelease` + an emulator smoke pass, matching the 2026-08-17 verification standard) —
-   every session so far has only hand-reviewed its own code, never compiled it. Fix whatever a
-   real compiler finds before trusting any of this work further. Pay particular attention to the
-   rename (does `com.oumatjie.app` actually register correctly as an OAuth-matchable
-   `applicationId` alongside the unchanged `com.granify.app` namespace?) and the new
-   `androidx.core:core-splashscreen` dependency, since those are this session's least-precedented
-   changes. See DECISIONS.md's verification-summary addendum for what was and wasn't possible to
-   check without a working toolchain.
-2. **Commit the repository.** Independent of everything else below — there is currently zero
-   git history protecting any of this work, across three sessions now. Confirm a `LICENSE`
-   decision first if that's quick to get from the user (next item), otherwise commit and add the
-   license in a follow-up commit rather than delaying the first commit further.
-3. **Get a LICENSE decision from the user.** The user has said they want this repo public
+1. **Run the real build and test suite locally, or watch CI do it.** `ci.yml` now runs
+   `testDebugUnitTest` and `assembleDebug` on every push — one real bug already found and fixed
+   this way (see above). Still worth running `assembleRelease` + an emulator smoke pass locally
+   (matching the 2026-08-17 verification standard) once there's a local/Claude Code session,
+   since CI doesn't cover either of those yet. Pay particular attention to the rename (does
+   `com.oumatjie.app` actually register correctly as an OAuth-matchable `applicationId` alongside
+   the unchanged `com.granify.app` namespace?) and the `androidx.core:core-splashscreen`
+   dependency, since those are among the least-precedented changes still fully unverified. See
+   DECISIONS.md's verification-summary addendum for what was and wasn't possible to check without
+   a working toolchain before this session.
+2. **Get a LICENSE decision from the user.** The user has said they want this repo public
    eventually; there's currently no license at all. This is a real decision (MIT vs Apache 2.0
    vs something else) with consequences for how others can use the code — ask, don't guess. A
    factual comparison is ready to hand them: `docs/LICENSE_COMPARISON.md` (2026-08-25 session).
    See also DECISIONS.md's "No LICENSE file" gap.
-4. **Rename the real Windows-machine artifacts that this session's text-only rename couldn't
+3. **Rename the real Windows-machine artifacts that this session's text-only rename couldn't
    reach**: the `granify_test` AVD (cosmetic only — see AGENTS.md) and, if desired, a real IDE
    "Rename package" refactor of `com.granify.app` → `com.oumatjie.app` now that Android Studio and
    a real compiler are available to verify it (this session deliberately left the Kotlin
    namespace unchanged — see DECISIONS.md's rename entry for why).
-5. **Get an Anthropic API key from the user and try the AI features for real** (NEEDS_YOUR_INPUT.md
+4. **Get an Anthropic API key from the user and try the AI features for real** (NEEDS_YOUR_INPUT.md
    has the exact steps) — the scam-check and summarization features have never been exercised
    against a real model response, only against hand-written fakes.
-6. **Start the Play Store readiness clock.** `docs/PLAY_STORE_READINESS.md` is new this session
+5. **Start the Play Store readiness clock.** `docs/PLAY_STORE_READINESS.md` is new this session
    and lays out the order — the OAuth restricted-scope/CASA verification and the Play Developer
    account identity verification both have long, unpredictable lead times and are worth starting
    in parallel with everything else on this list, not saved for last. `docs/PRIVACY_POLICY.md`
    needs a real legal review before it's published at oumatjie.com.
-7. **Implement AI_ASSISTANT.md's remaining features, in the order specified there**:
+6. **Implement AI_ASSISTANT.md's remaining features, in the order specified there**:
    calendar-aware reading (5) needs the real `READ_CALENDAR` permission and a device/emulator to
    test against; AI-flagged notifications (6) need `POST_NOTIFICATIONS`; categorization's Tier 1
    is now built (2026-08-25) — what's left is Tier 2 (AI-assisted suggestion) and a rename/merge
@@ -207,9 +228,9 @@ housekeeping item below; flagging it here so it isn't missed.
    itself suggesting reconsidering whether it's needed once the rest exist. The home-screen widget
    (Jetpack Glance) and static App Shortcuts, both considered in ROADMAP.md, are reasonable next
    candidates once there's compiler access to verify them.
-8. **A real TalkBack pass** on an emulator or device — never actually done, across every session
+7. **A real TalkBack pass** on an emulator or device — never actually done, across every session
    so far.
-9. **Real Google Cloud project setup** (SETUP.md §3) whenever testing against an actual Gmail
+8. **Real Google Cloud project setup** (SETUP.md §3) whenever testing against an actual Gmail
    inbox becomes the priority — currently the single biggest thing that's built but unverified
    against a live account. Note the OAuth client now needs to be registered against
    `com.oumatjie.app` (the `applicationId`), not `com.granify.app` — SETUP.md §3 already reflects
@@ -231,6 +252,10 @@ housekeeping item below; flagging it here so it isn't missed.
 | `docs/LICENSE_COMPARISON.md` | Factual, non-recommending MIT vs. Apache 2.0 comparison — for the project owner's own LICENSE decision |
 | `AGENTS.md` | Machine/tooling setup, working preferences, documentation-update ritual |
 | `HANDOFF.md` | This file |
+| `CLAUDE.md` | Short pointer file read automatically by Claude Code and the GitHub Actions below — points here and to AGENTS.md rather than duplicating them |
+| `.github/workflows/ci.yml` | Build + unit test on every push/PR |
+| `.github/workflows/claude.yml` | Responds to `@claude` mentions in issues/PRs |
+| `.github/workflows/claude-ci-watch.yml` | Daily CI-health check; opens a fix PR if something's broken, never auto-merges |
 | `app/src/main/java/com/granify/app/` | All application source, one package per concern (see README's Architecture section). Kotlin package/namespace unchanged by the Oumatjie rename — see DECISIONS.md. |
 
 ## What not to assume
@@ -251,8 +276,13 @@ housekeeping item below; flagging it here so it isn't missed.
 - Do not assume sound was overlooked as a feedback channel — it was researched and deliberately
   not added this pass (2026-08-25); see DECISIONS.md before adding it casually, and check
   DESIGN_SYSTEM.md's Haptics section for the requirements it would have to meet.
-- Do not assume anything is committed to git — it isn't, as of this handoff, across four
-  sessions now.
+- Do not assume nothing is committed to git — as of 2026-08-25 it is: a real, private GitHub
+  repo (`https://github.com/ReubenMiddleton/oumatjie`) with CI and the GitHub Action live. Older
+  language in this project (and muscle memory from earlier sessions) said otherwise; that's now
+  out of date.
+- Do not assume every "hand-verified, not compiled" claim in this file or DECISIONS.md is
+  probably fine — the very first real CI run found a genuine bug (see above). Treat unverified
+  claims as genuinely unverified, not as low-risk by default.
 - Do not assume a Google Cloud project or real Gmail credentials exist — they don't; only the demo inbox has been exercised live.
 - Do not assume an Anthropic API key exists anywhere in this project — it doesn't; AI features
   are off by default and have never been exercised against a real model response.

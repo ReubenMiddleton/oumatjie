@@ -15,28 +15,6 @@ stalling. Newest first within each section.
 
 ## Blocked
 
-### GitHub repo + Actions setup (added 2026-08-25 — files ready, needs your account-side steps)
-The project isn't tracked in git anywhere yet. Decided 2026-08-25: a private personal GitHub
-repo (`oumatjie`), plus the Claude Code GitHub Action so build/test failures can get diagnosed
-and fixed even during long stretches without the project owner around — see
-`docs/DECISIONS.md`'s "CI/CD and autonomous GitHub Action set up" entry for the full reasoning,
-including why this deliberately doesn't touch any credential directly (SSH keys blocked at this
-sandbox's network level, GitHub's OAuth pages blocked too — see that entry) and why it opens
-pull requests rather than auto-merging.
-
-Three workflow files are already written and waiting in `.github/workflows/` (`ci.yml`,
-`claude.yml`, `claude-ci-watch.yml`) — nothing left to build, only account-side steps only the
-project owner can do:
-1. One-time push: `git init`, first commit, `gh repo create oumatjie --private`, push (exact
-   commands given in chat when this was set up).
-2. Install the [Claude GitHub App](https://github.com/apps/claude), scoped to just this repo.
-3. Run `claude setup-token` locally (installs Claude Code CLI if needed) to generate a
-   subscription-based token — no metered API billing.
-4. Add that token as a repo secret named `CLAUDE_CODE_OAUTH_TOKEN`.
-
-**To resolve**: do the four steps above; the workflow files are already in place and need no
-further action once the secret exists.
-
 ### AI provider API key (updated 2026-08-24 — plumbing now built, just needs your key)
 Scam/phishing detection and summarization (see [`docs/AI_ASSISTANT.md`](AI_ASSISTANT.md)) are
 now fully implemented and wired up to call Anthropic's Claude Haiku 4.5 — the only thing missing
@@ -91,4 +69,13 @@ resolve**: read the comparison and say which one (or something else entirely).
 
 ## Resolved
 
-*(nothing yet — this section fills in as blocked items above get resolved)*
+### GitHub repo + Actions setup (resolved 2026-08-25)
+The project owner ran all four account-side steps: `git init`/commit, `gh auth login` as their
+personal account, `gh repo create oumatjie --private --source=. --remote=origin --push` (repo now
+live at `https://github.com/ReubenMiddleton/oumatjie`), installed the Claude GitHub App scoped to
+just this repo, and added `CLAUDE_CODE_OAUTH_TOKEN` as a repository secret. The three workflow
+files (`ci.yml`, `claude.yml`, `claude-ci-watch.yml`) are live. The repo's very first CI run
+immediately found a real bug — see `docs/DECISIONS.md`'s "First real CI run found a real bug
+hand-review missed" — which is itself the clearest possible confirmation this was worth setting
+up. See `docs/DECISIONS.md`'s "CI/CD and autonomous GitHub Action set up" entry for the full
+setup reasoning.

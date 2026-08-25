@@ -104,7 +104,10 @@ class SessionViewModel(
     private suspend fun handleOutcome(outcome: AuthorizeOutcome) {
         when (outcome) {
             is AuthorizeOutcome.Granted -> {
-                val email = runCatching { gmailMailRepository.fetchAccountEmail() }.getOrNull()
+                // Pass the token we already have rather than letting fetchAccountEmail() derive
+                // its own — see that function's doc comment for why re-deriving it would call
+                // AuthManager.authorize() a second, redundant time per sign-in.
+                val email = runCatching { gmailMailRepository.fetchAccountEmail(outcome.accessToken) }.getOrNull()
                 sessionRepository.recordSignedIn()
                 _signInState.value = SignInUiState()
                 _session.value = SessionState.SignedIn(email)

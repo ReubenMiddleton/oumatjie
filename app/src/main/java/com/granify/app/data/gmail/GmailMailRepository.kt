@@ -59,7 +59,16 @@ class GmailMailRepository(
     }
 
     /** The signed-in address, for "Signed in as …" display copy. */
-    suspend fun fetchAccountEmail(): String = api.getProfile(authHeader()).emailAddress
+    /**
+     * [accessToken] is passed in rather than fetched via [authHeader] here, deliberately: every
+     * caller of this already just received a fresh [AuthorizeOutcome.Granted] token a moment
+     * ago (see [com.granify.app.session.SessionViewModel.handleOutcome]) — re-deriving it via
+     * another [authHeader] call would silently re-invoke [AuthManager.authorize] a second time
+     * per sign-in, which is exactly the bug `SessionViewModelTest` caught (the test asserts
+     * `authorize()` is called exactly once for a silent re-auth).
+     */
+    suspend fun fetchAccountEmail(accessToken: String): String =
+        api.getProfile("Bearer $accessToken").emailAddress
 
     private suspend fun authHeader(): String {
         return when (val outcome = authManager.authorize(REQUIRED_SCOPES)) {

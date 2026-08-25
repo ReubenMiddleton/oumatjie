@@ -741,6 +741,41 @@ risk, but not a risk worth taking for what Hilt would save here.
 
 ## Hurdles
 
+### First real CI run found a real bug hand-review missed: `authorize()` called twice per sign-in (2026-08-25)
+The very first GitHub Actions `ci.yml` run against the new `oumatjie` repo (see "CI/CD and
+autonomous GitHub Action set up" under Decisions) failed on `testDebugUnitTest`:
+`SessionViewModelTest.init_withPreviousSignIn_andGrantedOutcome_signsInSilentlyWithNoLoadingLeftOver`
+asserted `authManager.authorize()` was called exactly once during a silent re-auth, and it was
+actually called twice.
+
+**Root cause**: `SessionViewModel.handleOutcome()`'s `Granted` branch called
+`gmailMailRepository.fetchAccountEmail()` with no arguments, and that function derived its own
+auth header via `authHeader()` — which itself calls `authManager.authorize()` again. Every
+sign-in path (silent re-auth on cold start, `signInWithGoogle()`, `onAuthorizationResolved()`)
+was calling `authorize()` twice: once to learn the outcome, once more, redundantly, just to
+fetch the account email. Harmless functionally against a real Google account (a second call to
+an already-granted `authorize()` just returns immediately with no UI — the same silent-refresh
+behavior `GmailMailRepository`'s own class doc describes), but a real, unnecessary extra network
+round-trip on every sign-in, and exactly the kind of thing a real test run catches that reading
+the code carefully does not.
+
+**Fixed** by threading the token straight through instead of re-deriving it: `fetchAccountEmail`
+now takes an `accessToken: String` parameter (`GmailMailRepository.kt`), and
+`SessionViewModel.handleOutcome()` passes `outcome.accessToken` — the token it already has from
+the very `Granted` outcome it's handling — rather than triggering a second `authorize()` call.
+No other call site existed for the old zero-arg signature.
+
+**Why this entry matters beyond the fix itself**: every "Verification summary" note in this file
+since 2026-08-24 has flagged the same caveat — this project's later sessions ran in a sandbox
+with no compiler, so their claims were "hand-verified," never "compiled and run," and that
+distinction "matters more with each session that adds more unverified surface area." This is the
+first time that gap actually mattered: a real toolchain (GitHub Actions, once the repo existed)
+found a real bug on its very first run that two full sessions of careful hand-review missed. Not
+a reason to distrust everything hand-verified in this project — most of it will likely turn out
+fine — but a concrete, non-hypothetical confirmation that "carefully reviewed" and "actually run"
+are genuinely different claims, worth remembering before treating any still-unverified section of
+this file as more solid than it's actually been shown to be.
+
 ### PDF viewer crashed again after the first fix: `isToolboxVisible` needs the fragment's view, not just its attachment (2026-08-17)
 Fixing the crash below (switching to `commitNow` + setting `documentUri` after) made the
 viewer load correctly — but it showed a floating purple edit/annotate FAB from the library's
