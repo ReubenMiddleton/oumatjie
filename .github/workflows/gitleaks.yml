@@ -1,0 +1,39 @@
+name: gitleaks
+
+# Secret scanning on every push and pull request. Added 2026-08-25 by the first local/Claude Code
+# session, per docs/TOOLING.md's "Complementary repo-hygiene tooling" item 2.
+#
+# Why gitleaks rather than GitHub's own secret scanning: TOOLING.md researched this while the repo
+# was still private, where GitHub's native secret scanning needs a paid Advanced Security licence.
+# The repo has since gone public, so GitHub's native scanning is now free and IS enabled — but this
+# workflow is still worth keeping, for two reasons it doesn't duplicate:
+#   1. It fails the build. GitHub's native scanning alerts after the fact; this blocks the PR.
+#   2. It scans full git history (fetch-depth: 0), not just the incoming diff.
+# Directly relevant here because this project handles an Anthropic API key and Google OAuth client
+# details — see docs/NEEDS_YOUR_INPUT.md.
+#
+# gitleaks-action v2 is free for public repositories and for individual accounts; the GITLEAKS_LICENSE
+# secret is only required for organisation-owned repos. This repo is individual-owned and public, so
+# no secret is needed. If ownership ever moves to an organisation, this workflow will start failing
+# with a licence error — that's a licensing change, not a leak.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: a secret committed and later "removed" still lives in history,
+          # and a shallow clone would miss it entirely.
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

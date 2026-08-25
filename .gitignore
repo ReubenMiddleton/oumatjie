@@ -14,6 +14,12 @@ build/
 keystore.properties
 secrets.properties
 
+# Graphify knowledge-graph output (generated locally; rebuild with `graphify . --code-only`)
+graphify-out/
+
+# Kotlin compiler session artifacts
+.kotlin/
+
 # OS files
 .DS_Store
 Thumbs.db

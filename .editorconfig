@@ -1,0 +1,38 @@
+# EditorConfig for Oumatjie. Added 2026-08-25 alongside ktlint (docs/TOOLING.md item 3).
+#
+# The `ktlint_code_style` choice below is a real decision, not a default — see
+# docs/DECISIONS.md's "detekt and ktlint added" entry.
+#
+# ktlint 1.x defaults to the `ktlint_official` code style, which enforces aggressive
+# function-signature / class-signature / multiline-expression wrapping. Running it against this
+# codebase produced 542 violations, essentially all from those three rules — not because the code
+# is badly formatted, but because it was hand-written in standard IntelliJ/Android Studio style
+# across four sessions. Reformatting 60 files to satisfy a newly-added tool would have produced a
+# large, unreviewable diff touching almost every line of a codebase whose correctness is still
+# only partly verified. Aligning the tool with the code's existing, consistent style is the
+# smaller and more honest change.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{kt,kts}]
+# Matches how this codebase is actually written. `ktlint_official` would demand a full reformat.
+ktlint_code_style = intellij_idea
+max_line_length = 140
+# @Composable functions are PascalCase by Compose convention — same reasoning as the
+# FunctionNaming exemption in config/detekt/detekt.yml.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+
+[*.{yml,yaml,json}]
+indent_size = 2
+
+[*.md]
+# Trailing double-space is a hard line break in Markdown.
+trim_trailing_whitespace = false

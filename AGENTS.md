@@ -56,12 +56,49 @@ repo is made public and machine-specific paths stop being appropriate to keep co
   build-tools 34/35/36, platform 36, `sdkmanager` at `tools\bin\sdkmanager.bat`). Point a
   gitignored `local.properties` at it with `sdk.dir=C:\\Users\\reube\\.bubblewrap\\android_sdk`.
   `sdkmanager` can fetch missing platforms/build-tools/extensions on demand.
-- **Known gap, last checked 2026-08-17**: Android SDK Platform 37 isn't published to Google's
-  SDK repository yet (checked both stable and preview channels) — only `build-tools;37.0.0`
-  exists so far. `compileSdk = 37` (this project's real, committed value) can't build in this
-  environment until that changes; verify with `sdkmanager --list` before assuming it's still
-  true, and if it's still missing, build against a temporarily-lowered `compileSdk = 36`
-  (revert after) rather than treating it as a code defect.
+- **Corrected 2026-08-25 — the old "Platform 37 isn't published yet" note was wrong.** Google
+  publishes `platforms;android-37.0` and `android-37.1` (confirmed against
+  `https://dl.google.com/android/repository/repository2-3.xml`). The real problem is local: this
+  SDK only has the **deprecated** `tools/bin/sdkmanager`, which speaks an old repository schema
+  and cannot see modern packages — so `sdkmanager --list` reports them as missing and
+  `--install "platforms;android-37.0"` fails with `Failed to find package`. **Do not trust that
+  tool's `--list` output as evidence about what Google publishes.** It also requires an explicit
+  `--sdk_root=C:\Users\reube\.bubblewrap\android_sdk`, or it fails with a bare
+  `IllegalArgumentException: Could not create settings`.
+  - Real local failure with the committed `compileSdk = 37`:
+    `Failed to find target with hash string 'android-37.0-ext19'`. Note it wants the
+    **`-ext19`** variant (from `compileSdkExtension = 19`), which Google's manifest does not
+    appear to list for 37 — confirm that before assuming installing `android-37.0` fixes it.
+  - **Until modern `cmdline-tools` is installed** (logged in `docs/NEEDS_YOUR_INPUT.md`), build
+    locally with `compileSdk` temporarily lowered to 36 against the installed `android-36-ext19`,
+    and revert before committing. This works — the full build and all 52 tests pass that way.
+  - CI is unaffected and builds `compileSdk = 37` green, because `android-actions/setup-android`
+    uses current cmdline-tools. A green CI run says nothing about this machine, and vice versa.
+  - `detekt`/`ktlintCheck` run fine with `compileSdk = 37` locally — AGP only fails at
+    task-dependency resolution for compile tasks. Don't read a green lint run as an SDK check.
+
+- **Building on this machine**: the default `JAVA_HOME` is JRE-only (no `javac`), so always pass
+  the JDK explicitly. The full working invocation:
+  ```
+  ./gradlew testDebugUnitTest assembleDebug \
+    "-Dorg.gradle.java.home=C:\Users\reube\.bubblewrap\jdk17-x64\jdk-17.0.20+8"
+  ```
+  A cold `--no-daemon` build takes roughly 3–4 minutes.
+
+- **Python, `uv`, and Graphify (added 2026-08-25)**: there is **no real Python** on this machine —
+  `python`/`python3` resolve to the Microsoft Store stub and `pip` doesn't exist, so TOOLING.md's
+  `pip install graphifyy` cannot work as written. Graphify is installed via `uv` instead and lives
+  at `C:\Users\reube\.local\bin\graphify.exe` (on PATH after `uv tool update-shell`; restart the
+  shell). Two Windows quirks if it ever needs reinstalling: `uv` fails with
+  `Missing expected target directory for Python minor version link` unless you pass an explicit
+  interpreter (`--python <path-to-python.exe>`), and its managed interpreters live under
+  `C:\Users\reube\AppData\Roaming\uv\python\`.
+  - Build the graph with `graphify . --code-only` — **the plain `graphify .` will fail** asking
+    for an LLM API key, which this project deliberately does not have. Refresh after code changes
+    with `graphify update .` (no API cost). Output lands in the gitignored `graphify-out/`.
+  - `gh` is **not** installed system-wide; GitHub API queries in this project have been done with
+    PowerShell's `Invoke-RestMethod` against `api.github.com`, which needs no auth for this
+    now-public repo.
 - A working AVD named `granify_test` already exists (API 36, `google_apis`, x86_64, `pixel_3a`
   profile) at `C:\Users\reube\.android\avd\granify_test.avd` — reuse it
   (`emulator -avd granify_test -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect`)

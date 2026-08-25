@@ -4,12 +4,12 @@ name: CI
 # see docs/DECISIONS.md's "No CI/CD" gap. Deliberately does not sign or publish anything (no
 # signing key is stored as a secret here — see docs/DECISIONS.md's "No production signing key").
 #
-# Known possible first-run gap, not a code problem: as of the 2026-08-17 session,
-# `compileSdk = 37` in app/build.gradle.kts hadn't yet been published to Google's SDK
-# repository (only build-tools 37.0.0 was). If the very first run of this workflow fails at
-# the SDK-download step rather than at compiling Oumatjie's own code, that's most likely this
-# same pre-existing gap, not a regression — check docs/DECISIONS.md's "Android SDK Platform 37
-# isn't published to Google's SDK repository yet" entry before assuming something broke.
+# Resolved 2026-08-25 (was: "compileSdk = 37 isn't published yet"). Google has since published
+# `platforms;android-37.0` and `android-37.1`, and this workflow builds green against
+# `compileSdk = 37`. Note the package is named `android-37.0`, not `android-37`. A *local* build
+# on the original dev machine can still fail to find it, because that machine has the deprecated
+# `tools/bin/sdkmanager`, which cannot see modern packages — that's a local tooling gap, not a
+# CI or code problem. See AGENTS.md and docs/DECISIONS.md's entry for 2026-08-25.
 
 on:
   push:
@@ -44,6 +44,14 @@ jobs:
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
+
+      # Static analysis and formatting, added 2026-08-25 (docs/TOOLING.md item 3). detekt runs
+      # against config/detekt/baseline.xml, which records the 45 pre-existing issues found when
+      # these tools were first introduced — so this step fails on NEW issues only, not on the
+      # backlog. ktlint had zero violations in Kotlin source when added; it is not baselined.
+      # Run before the tests so a formatting failure is reported fast.
+      - name: Static analysis (detekt + ktlint)
+        run: ./gradlew detekt ktlintCheck --stacktrace
 
       - name: Unit tests
         run: ./gradlew testDebugUnitTest --stacktrace

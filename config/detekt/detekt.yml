@@ -1,0 +1,32 @@
+# detekt configuration for Oumatjie. Added 2026-08-25 (docs/TOOLING.md item 3).
+#
+# `buildUponDefaultConfig = true` is set in app/build.gradle.kts, so this file only records
+# *deviations* from detekt's defaults. Every deviation below has a reason — please keep it that
+# way rather than silencing rules to make a build green.
+
+style:
+  # Compose UI code legitimately uses dimension/duration literals (dp, ms) inline. The design
+  # system centralises the ones that matter in ui/theme — see docs/DESIGN_SYSTEM.md — and the
+  # remainder are local layout values where a named constant would hurt readability.
+  MagicNumber:
+    ignoreAnnotated: ['Composable']
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+
+complexity:
+  # Composable screen functions are naturally long: they are declarative layout, not branching
+  # logic. Screens are still expected to delegate real work to a ViewModel.
+  LongMethod:
+    ignoreAnnotated: ['Composable']
+  LongParameterList:
+    ignoreAnnotated: ['Composable']
+
+naming:
+  # Jetpack Compose @Composable functions are PascalCase by convention (Google's own API
+  # guidelines and the Compose compiler itself expect it). detekt's default FunctionNaming rule
+  # assumes camelCase and would flag essentially every UI function in ui/.
+  FunctionNaming:
+    ignoreAnnotated: ['Composable']
+  # Compose slot parameters and state holders read better with the framework's own conventions.
+  TopLevelPropertyNaming:
+    constantPattern: '[A-Z][_A-Za-z0-9]*'

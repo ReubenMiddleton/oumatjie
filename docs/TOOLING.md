@@ -1,5 +1,35 @@
 # Tooling: Graphify and repo-hygiene candidates (researched 2026-08-25)
 
+> **Status update — 2026-08-25, first local session. Most of this is now done, and two claims
+> below turned out to be wrong. Read this box before following any instruction in this file.**
+>
+> **Installed and working**: Graphify, gitleaks, detekt, ktlint. Dependabot was set up by the
+> project owner directly on GitHub. Only **CodeQL** remains — and since the repo is now public,
+> it's free, so the "not now" verdict below is stale.
+>
+> **Correction 1 — `pip install graphifyy` cannot work on the project owner's machine.** There is
+> no real Python there (`python` resolves to the Microsoft Store stub, `pip` doesn't exist). It
+> was installed with `uv` instead. See AGENTS.md for the exact working invocation and two
+> Windows-specific `uv` gotchas.
+>
+> **Correction 2 — Graphify does *not* ride on Claude Code's credentials.** The claim below that
+> it "needs no API key of its own" is wrong in practice: plain `graphify .` exits with
+> `error: no LLM API key found (20 doc/paper/image file(s) need semantic extraction)`. Because
+> this project deliberately holds no API key, the graph is built with **`--code-only`** (local
+> tree-sitter AST parsing, no network). Consequence worth knowing: **this repo's 19 documentation
+> files — which carry most of its real reasoning — are not in the graph.** Only the 60 code files
+> are.
+>
+> **Resolved — the star count was verifiable after all, and it holds.** The scepticism below
+> about "105K+ GitHub stars" being self-reported was appropriate, and has now been settled from
+> an independent source: `api.github.com/repos/Graphify-Labs/graphify` reports **110,290 stars,
+> 10,733 forks**. Provenance was also cross-checked before installing — PyPI `graphifyy` 0.9.49
+> declares its repository as `github.com/Graphify-Labs/graphify`, Apache-2.0, with nothing
+> resembling `graphify.net` anywhere in its metadata. The domain warning below remains correct
+> and worth keeping.
+>
+> Full detail: `docs/DECISIONS.md`'s Graphify and detekt/ktlint entries for 2026-08-25.
+
 Written in response to a direct request to look into Graphify and scout adjacent tooling "for
 future repo hygiene... that will work well with claude code and graphify," to be handled once a
 local/Claude Code session exists. Nothing in this file has been installed or wired into the repo

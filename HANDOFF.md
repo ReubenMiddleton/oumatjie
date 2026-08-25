@@ -49,10 +49,64 @@ web view — a real, from-scratch native app.
    access this project hasn't had until now. Has a domain warning worth reading before installing
    anything (`graphify.net` ≠ the real project).
 
-## Current state, as of 2026-08-25 (four sessions total — see below)
+## Current state, as of 2026-08-25 (five sessions total — see below)
+
+**The code has now actually been compiled and tested — for the first time in this project's
+history.** This is the single most important change since the repo went live, and it retires the
+caveat that every previous version of this file led with. A local Claude Code session on the
+owner's Windows machine ran the real toolchain:
+
+- `./gradlew testDebugUnitTest assembleDebug` — **BUILD SUCCESSFUL**, 44.3 MB debug APK.
+- **52 unit tests, 0 failures, 0 skipped.**
+- `./gradlew assembleRelease` — **BUILD SUCCESSFUL**, R8 shrinks it to 6.1 MB, lintVital clean.
+
+**Nothing was broken.** Four sessions of hand-written, never-compiled code — the Oumatjie rename,
+the splash screen, the design-system refactor, Tier 1 categorization, the AI provider abstraction
+— compiled on the first attempt. The "hand-verified, not compiled" caveat below is therefore
+**discharged for compile-correctness**, though *not* for runtime behavior: nothing has been run on
+a device or emulator since 2026-08-17, and TalkBack still has never been tested. Full detail in
+DECISIONS.md's new "Verification summary (2026-08-25, first local session with a real toolchain)".
+
+Also this session:
+
+- **A long-standing documented blocker turned out to be wrong.** "Android SDK Platform 37 isn't
+  published yet" — repeated since 2026-08-17 in AGENTS.md, `ci.yml`, and DECISIONS.md — is false.
+  Google publishes `platforms;android-37.0`/`37.1`; the real problem is that this machine has the
+  *deprecated* `sdkmanager`, which can't see modern packages. CI had been quietly proving this all
+  along by building `compileSdk = 37` green. Corrected in all three places. Local builds still
+  need `compileSdk` temporarily set to 36 until `cmdline-tools` is installed
+  (NEEDS_YOUR_INPUT.md).
+- **Graphify installed** (`C:\Users\reube\.local\bin\graphify.exe`), from the verified official
+  source — provenance cross-checked across PyPI/GitHub before installing, and TOOLING.md's
+  unverifiable "105K+ stars" claim now independently confirmed at **110,290** via GitHub's API.
+  The graph is built (**451 nodes, 1019 edges, no import cycles**; `AppContainer` is the biggest
+  architectural hub and the riskiest file to change). Two corrections to TOOLING.md: its
+  `pip install` instruction can't work (no real Python on this machine — `uv` was used), and its
+  claim that Graphify needs no API key is **wrong** — `graphify .` demands one, so the graph is
+  built with `--code-only`, which excludes this repo's 19 doc files.
+- **detekt + ktlint added and wired into `ci.yml`**, both baselined so CI fails on *new* issues
+  only. detekt found 45 issues; ktlint found 542 under its default style, cut to 174 by setting
+  `ktlint_code_style = intellij_idea` in a new `.editorconfig` rather than reformatting 60 files.
+  Three detekt findings are worth a human look and were deliberately not silenced: **swallowed
+  exceptions** in `AnthropicAiProvider.kt` (×2) and `GmailMailRepository.kt`.
+- **gitleaks workflow added** (`.github/workflows/gitleaks.yml`), scanning full history on every
+  push/PR.
+- **Dependabot is live and has opened 10 PRs** — you added `dependabot.yml` directly on GitHub.
+  None reviewed. Includes majors (Kotlin 2.4, OkHttp 5) that shouldn't be batch-merged; see
+  NEEDS_YOUR_INPUT.md.
+- **The public repo has no license.** The `LICENSE` file drafted last session was never committed,
+  so GitHub reports `"license": null` on a public repo — meaning nobody may legally reuse the
+  code. Logged in NEEDS_YOUR_INPUT.md; not committed here, per the never-commit-unasked rule.
+
+**Nothing in this session was committed.** The working tree carries all of the above plus the
+previous session's uncommitted doc changes — see "Uncommitted work" at the end of this file.
+
+## Earlier state, as of 2026-08-25 (four sessions)
 
 **The repo is now live on GitHub, with CI and an autonomous GitHub Action, both working** —
-`https://github.com/ReubenMiddleton/oumatjie` (private). This is the single biggest state change
+`https://github.com/ReubenMiddleton/oumatjie` (**public as of 2026-08-25** — CodeQL, Secret
+Protection, and a branch ruleset on `main` are set up; see DECISIONS.md's "LICENSE recommended...
+repo made public" entry). This is the single biggest state change
 in the project's history and supersedes several "not yet done" notes further down this file that
 predate it:
 - `.github/workflows/ci.yml` runs unit tests + a debug build on every push/PR.
@@ -217,39 +271,48 @@ committed" gap that every earlier version of this file flagged as top priority.
 
 ## Recommended next steps, in priority order
 
-1. **Run the real build and test suite locally, or watch CI do it.** `ci.yml` now runs
-   `testDebugUnitTest` and `assembleDebug` on every push — one real bug already found and fixed
-   this way (see above). Still worth running `assembleRelease` + an emulator smoke pass locally
-   (matching the 2026-08-17 verification standard) once there's a local/Claude Code session,
-   since CI doesn't cover either of those yet. Pay particular attention to the rename (does
-   `com.oumatjie.app` actually register correctly as an OAuth-matchable `applicationId` alongside
-   the unchanged `com.granify.app` namespace?) and the `androidx.core:core-splashscreen`
-   dependency, since those are among the least-precedented changes still fully unverified. See
-   DECISIONS.md's verification-summary addendum for what was and wasn't possible to check without
-   a working toolchain before this session.
-2. **Set up Graphify and the repo-hygiene tools from `docs/TOOLING.md`.** The project owner
-   flagged this as a priority once a local/Claude Code session exists, specifically because it
-   should improve efficiency on everything else on this list. Read the domain warning at the top
-   of that doc first — `graphify.net` (what was originally linked) is not the official project.
-3. **Get a LICENSE decision from the user.** The user has said they want this repo public
-   eventually; there's currently no license at all. This is a real decision (MIT vs Apache 2.0
-   vs something else) with consequences for how others can use the code — ask, don't guess. A
-   factual comparison is ready to hand them: `docs/LICENSE_COMPARISON.md` (2026-08-25 session).
-   See also DECISIONS.md's "No LICENSE file" gap.
-4. **Rename the real Windows-machine artifacts that this session's text-only rename couldn't
+1. ~~**Run the real build and test suite locally.**~~ **Done 2026-08-25** — debug build, release
+   build, and all 52 tests pass. See the top of this file. What's left from the original item:
+   **an emulator smoke pass**, which is *not* done and is now the oldest unverified thing in the
+   project (last real device run: 2026-08-17, before three sessions of changes). Fold this into
+   step 2 below rather than treating it as separate.
+2. **Run on a real emulator and do a genuine TalkBack pass.** Now the single highest-value thing
+   nobody has ever done. A working AVD already exists (`granify_test`, see AGENTS.md for how to
+   drive it reliably — don't guess tap coordinates from screenshots). Two things to verify beyond
+   accessibility, both of which compiled clean but have never *run*: the splash screen, and the
+   2026-08-25 static-audit fixes (heading semantics and the "Unread" text label) actually being
+   announced by TalkBack. Note you'll need either `compileSdk` temporarily at 36, or
+   `cmdline-tools` installed first (NEEDS_YOUR_INPUT.md).
+3. ~~**Set up Graphify and the repo-hygiene tools.**~~ **Done 2026-08-25** — Graphify, gitleaks,
+   detekt, and ktlint are all installed/wired; Dependabot was set up by the project owner. Only
+   CodeQL remains from TOOLING.md, and the repo is public now, so it's free — worth adding.
+   TOOLING.md itself now contains two claims this session proved wrong (its `pip install`
+   instruction, and "no API key needed"); read the corrections in DECISIONS.md alongside it.
+4. **Deal with the licence gap, then the 10 Dependabot PRs.** Both are in NEEDS_YOUR_INPUT.md.
+   The licence one is genuinely urgent-ish: the repo is public with no licence at all, so the
+   drafted Apache 2.0 file needs confirming and committing. The Dependabot PRs now *can* be
+   tested locally rather than merged on faith — do the 6 Actions bumps first, Kotlin 2.4 and
+   OkHttp 5 last and carefully.
+5. **Look at the three swallowed exceptions detekt found** — `AnthropicAiProvider.kt:31` and
+   `:43`, `GmailMailRepository.kt:42`. Deliberately not "fixed" this session because changing
+   error handling is a behavior change, not a lint fix, and these sit in auth/network paths where
+   a silent failure is exactly what hides a real bug. Worth a decision either way, then either
+   fix them or annotate why they're correct.
+6. **Rename the real Windows-machine artifacts that this session's text-only rename couldn't
    reach**: the `granify_test` AVD (cosmetic only — see AGENTS.md) and, if desired, a real IDE
    "Rename package" refactor of `com.granify.app` → `com.oumatjie.app` now that Android Studio and
    a real compiler are available to verify it (this session deliberately left the Kotlin
    namespace unchanged — see DECISIONS.md's rename entry for why).
-5. **Get an Anthropic API key from the user and try the AI features for real** (NEEDS_YOUR_INPUT.md
+7. **Get an Anthropic API key from the user and try the AI features for real** (NEEDS_YOUR_INPUT.md
    has the exact steps) — the scam-check and summarization features have never been exercised
-   against a real model response, only against hand-written fakes.
-6. **Start the Play Store readiness clock.** `docs/PLAY_STORE_READINESS.md` is new this session
+   against a real model response, only against hand-written fakes. A key would also let Graphify
+   index this repo's 19 doc files, which `--code-only` currently excludes from the graph.
+8. **Start the Play Store readiness clock.** `docs/PLAY_STORE_READINESS.md` is new this session
    and lays out the order — the OAuth restricted-scope/CASA verification and the Play Developer
    account identity verification both have long, unpredictable lead times and are worth starting
    in parallel with everything else on this list, not saved for last. `docs/PRIVACY_POLICY.md`
    needs a real legal review before it's published at oumatjie.com.
-7. **Implement AI_ASSISTANT.md's remaining features, in the order specified there**:
+9. **Implement AI_ASSISTANT.md's remaining features, in the order specified there**:
    calendar-aware reading (5) needs the real `READ_CALENDAR` permission and a device/emulator to
    test against; AI-flagged notifications (6) need `POST_NOTIFICATIONS`; categorization's Tier 1
    is now built (2026-08-25) — what's left is Tier 2 (AI-assisted suggestion) and a rename/merge
@@ -257,9 +320,7 @@ committed" gap that every earlier version of this file flagged as top priority.
    itself suggesting reconsidering whether it's needed once the rest exist. The home-screen widget
    (Jetpack Glance) and static App Shortcuts, both considered in ROADMAP.md, are reasonable next
    candidates once there's compiler access to verify them.
-8. **A real TalkBack pass** on an emulator or device — never actually done, across every session
-   so far.
-9. **Real Google Cloud project setup** (SETUP.md §3) whenever testing against an actual Gmail
+10. **Real Google Cloud project setup** (SETUP.md §3) whenever testing against an actual Gmail
    inbox becomes the priority — currently the single biggest thing that's built but unverified
    against a live account. Note the OAuth client now needs to be registered against
    `com.oumatjie.app` (the `applicationId`), not `com.granify.app` — SETUP.md §3 already reflects
@@ -278,23 +339,35 @@ committed" gap that every earlier version of this file flagged as top priority.
 | `docs/DESIGN_SYSTEM.md` | Design tokens (color, type, shape, spacing, motion, haptics) and shared components |
 | `docs/PRIVACY_POLICY.md` | Drafted privacy policy for oumatjie.com — needs legal review before publishing |
 | `docs/PLAY_STORE_READINESS.md` | Checklist: what's done, what's paperwork-only, what's a real engineering gap |
-| `docs/LICENSE_COMPARISON.md` | Factual, non-recommending MIT vs. Apache 2.0 comparison — for the project owner's own LICENSE decision |
+| `docs/LICENSE_COMPARISON.md` | Factual MIT vs. Apache 2.0 comparison, plus a note on GPL |
+| `LICENSE` | Apache 2.0 — recommended and drafted 2026-08-25, still needs the project owner's confirmation (see NEEDS_YOUR_INPUT.md) |
 | `docs/TOOLING.md` | Graphify (with a domain warning — `graphify.net` ≠ the real project) and complementary repo-hygiene tooling (Dependabot, gitleaks, detekt/ktlint, CodeQL), researched 2026-08-25, ready for a local/Claude Code session to install |
 | `AGENTS.md` | Machine/tooling setup, working preferences, documentation-update ritual |
 | `HANDOFF.md` | This file |
 | `CLAUDE.md` | Short pointer file read automatically by Claude Code and the GitHub Actions below — points here and to AGENTS.md rather than duplicating them |
-| `.github/workflows/ci.yml` | Build + unit test on every push/PR |
+| `.github/workflows/ci.yml` | detekt + ktlint, then unit tests, then debug build, on every push/PR |
 | `.github/workflows/claude.yml` | Responds to `@claude` mentions in issues/PRs |
 | `.github/workflows/claude-ci-watch.yml` | Daily CI-health check; opens a fix PR if something's broken, never auto-merges |
+| `.github/workflows/gitleaks.yml` | Secret scanning over full git history on every push/PR (added 2026-08-25) |
+| `.github/dependabot.yml` | Weekly Gradle + GitHub Actions dependency PRs (added by the project owner, 2026-08-25) |
+| `.editorconfig` | Shared formatting, and the `ktlint_code_style` decision — see its own header comment |
+| `config/detekt/detekt.yml` | detekt rule deviations, each with a documented reason |
+| `config/detekt/baseline.xml` | The 45 pre-existing detekt issues; CI fails on new ones only |
+| `config/ktlint/baseline.xml` | The 174 pre-existing ktlint issues; delete it if you ever run `ktlintFormat` |
+| `graphify-out/` | Generated Graphify knowledge graph — gitignored, rebuild with `graphify . --code-only` |
 | `app/src/main/java/com/granify/app/` | All application source, one package per concern (see README's Architecture section). Kotlin package/namespace unchanged by the Oumatjie rename — see DECISIONS.md. |
 
 ## What not to assume
 
-- Do not assume any of this project's code (either 2026-08-24 session's work: typography wiring,
-  button hierarchy, haptics/motion, session persistence, AI features 1–4, the rename, the design
-  system refactor, the splash screen) compiles or runs correctly just because it's described as
-  "done" above — everything has been hand-verified only, never built. Run a real build first (see
-  "Recommended next steps" #1).
+- **This one changed on 2026-08-25 — read it before acting on old muscle memory.** Every earlier
+  version of this file said "do not assume any of this code compiles; it has been hand-verified
+  only, never built." That is no longer true: it compiles, and all 52 tests pass. What you still
+  must not assume is that it *runs correctly* — compiling is not running, and nothing has been on
+  a device or emulator since 2026-08-17, which predates three sessions of changes. Treat runtime
+  behavior, not compilation, as the open question now.
+- Do not assume `compileSdk = 37` builds on the original dev machine — it doesn't, and that is a
+  local `sdkmanager` limitation, not a code defect. Equally, do not assume Platform 37 is
+  unpublished; that long-standing note was wrong. See AGENTS.md.
 - Do not assume `com.granify.app` and `com.oumatjie.app` are a typo or inconsistency if you see
   both — they're deliberately different (`namespace` vs. `applicationId`). See DECISIONS.md's
   rename entry before "fixing" this.
@@ -306,10 +379,13 @@ committed" gap that every earlier version of this file flagged as top priority.
 - Do not assume sound was overlooked as a feedback channel — it was researched and deliberately
   not added this pass (2026-08-25); see DECISIONS.md before adding it casually, and check
   DESIGN_SYSTEM.md's Haptics section for the requirements it would have to meet.
-- Do not assume nothing is committed to git — as of 2026-08-25 it is: a real, private GitHub
-  repo (`https://github.com/ReubenMiddleton/oumatjie`) with CI and the GitHub Action live. Older
+- Do not assume nothing is committed to git — as of 2026-08-25 it is: a real GitHub repo
+  (`https://github.com/ReubenMiddleton/oumatjie`) with CI and the GitHub Action live. Older
   language in this project (and muscle memory from earlier sessions) said otherwise; that's now
-  out of date.
+  out of date. Note it is **public**, not private — some surrounding text still says private, and
+  that is stale. It also currently has **no licence file committed**, despite being public.
+- Do not assume the working tree is clean or that this session's work is committed — it isn't.
+  See "Uncommitted work" below before starting anything.
 - Do not assume every "hand-verified, not compiled" claim in this file or DECISIONS.md is
   probably fine — the very first real CI run found a genuine bug (see above). Treat unverified
   claims as genuinely unverified, not as low-risk by default.
@@ -322,3 +398,30 @@ committed" gap that every earlier version of this file flagged as top priority.
 - Do not assume `docs/PRIVACY_POLICY.md` is ready to publish as-is — it's an accurate,
   code-verified first draft, not a legally reviewed document. See its own drafting note.
 - This machine's local tool paths (SDK/JDK locations, emulator name, known gotchas) are recorded in `AGENTS.md`, not repeated here — check there before rediscovering them from scratch. If working from a different machine, treat that section as a template to redo, not as fact.
+
+## Uncommitted work (as of the end of the 2026-08-25 local session)
+
+Nothing below has been committed or pushed, per this project's standing "never commit without
+being explicitly asked" rule. If you're picking this up cold, `git status` should show:
+
+| File | State | What it is |
+|---|---|---|
+| `LICENSE` | untracked | Apache 2.0, drafted the previous session. **Never committed — so the public repo has no licence.** Awaiting confirmation (NEEDS_YOUR_INPUT.md). |
+| `.editorconfig` | untracked | New. Formatting + the `ktlint_code_style` decision. |
+| `config/` | untracked | New. detekt config + both lint baselines. |
+| `.github/workflows/gitleaks.yml` | untracked | New. Secret-scanning workflow. |
+| `.github/workflows/ci.yml` | modified | Added the detekt/ktlint step; corrected the stale Platform 37 header note. |
+| `build.gradle.kts`, `app/build.gradle.kts` | modified | detekt + ktlint plugins and config. `compileSdk` is back at the committed `37`. |
+| `.gitignore` | modified | Added `graphify-out/` and `.kotlin/`. |
+| `HANDOFF.md`, `AGENTS.md`, `docs/DECISIONS.md`, `docs/NEEDS_YOUR_INPUT.md` | modified | This session's documentation. DECISIONS.md and NEEDS_YOUR_INPUT.md also still carry the *previous* session's uncommitted doc edits. |
+
+Two things worth knowing before committing any of it:
+
+1. **The doc changes span two sessions.** DECISIONS.md, NEEDS_YOUR_INPUT.md and HANDOFF.md
+   already had uncommitted edits from the previous session when this one started; those are mixed
+   in with this session's. If you want clean history, that's worth separating deliberately rather
+   than in one blanket `git add -A`.
+2. **Committing the build-file changes will immediately exercise the new CI step**, since
+   `ci.yml` now runs `detekt ktlintCheck` before the tests. Both pass locally against the
+   committed baselines, so it should be green — but the baselines and `.editorconfig` must go in
+   the *same* commit as the plugin changes, or CI will fail on 542 ktlint violations.

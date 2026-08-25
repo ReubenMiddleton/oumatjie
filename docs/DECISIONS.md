@@ -11,6 +11,36 @@ way while building it, and what's still open. Newest entries at the top of each 
 - **Gap** — known-incomplete, deliberately deferred, or unverifiable in the current
   environment. Not a bug list — a "here's what 'done' doesn't cover yet" list.
 
+## Verification summary (2026-08-25, first local session with a real toolchain)
+
+**This is the first entry in this file that can say "compiled and run" rather than
+"hand-verified."** Read it before trusting — or distrusting — anything below.
+
+What is now actually proven, by running it on the owner's Windows machine:
+
+- `./gradlew testDebugUnitTest assembleDebug` — **BUILD SUCCESSFUL**, 44.3 MB debug APK produced.
+- **52 unit tests, 0 failures, 0 skipped**, across all 7 test classes.
+- `./gradlew assembleRelease` — **BUILD SUCCESSFUL**, R8/ProGuard shrinks to a 6.1 MB APK,
+  `lintVitalRelease` clean.
+- `./gradlew detekt ktlintCheck` — clean against the new baselines.
+
+Every "hand-verified, not compiled" caveat below, going back to 2026-08-24, is therefore
+**discharged for compile-correctness**. The rename, the splash screen, the design-system refactor,
+Tier 1 categorization and the AI provider abstraction all compile and their tests pass.
+
+What this still does **not** prove, and where the old caveats stand unchanged:
+
+- **Nothing has been run on a device or emulator this session.** The 2026-08-17 emulator
+  verification is still the most recent real runtime evidence, and it predates every change made
+  on 2026-08-24 and after. Compiling is not running.
+- **TalkBack has still never been tested.** Still the top open gap, unchanged since 2026-08-17.
+- **No real Gmail account, no Google Cloud project, no Anthropic API call.** Unchanged.
+- The build had to be run with `compileSdk` temporarily lowered to 36 (see the SDK Platform 37
+  entry under Decisions) — so the *committed* `compileSdk = 37` configuration has been verified by
+  CI, but not locally.
+- Several test files emit `ExperimentalCoroutinesApi` opt-in warnings. Not errors today; will be
+  eventually.
+
 ## Verification summary (session 2026-08-24 addendum)
 
 Everything below this line and above the 2026-08-17 summary was built in a cloud sandbox with
@@ -87,6 +117,192 @@ What "verified" actually means for this snapshot, so it doesn't need to be re-de
 ---
 
 ## Decisions
+
+### Android SDK Platform 37 *is* published — the long-standing "not published yet" gap was stale, and the real blocker is this machine's deprecated `sdkmanager` (2026-08-25)
+Recorded since 2026-08-17 as a hard environmental blocker ("Platform 37 isn't published to
+Google's SDK repository yet; only `build-tools;37.0.0` exists"), repeated in AGENTS.md, `ci.yml`'s
+header comment, and this file. **It is no longer true, and the diagnosis was partly wrong even
+then.** Checked directly against Google's own repository manifest
+(`https://dl.google.com/android/repository/repository2-3.xml`), which currently lists:
+
+```
+platforms;android-37.0     platforms;android-37.1
+platforms;android-37.2-beta1 / -beta2 / -beta3
+```
+
+Two things follow, and the second is the one that actually matters:
+
+1. **The package is named `android-37.0`, not `android-37`.** Any check that grepped for an exact
+   `platforms;android-37` would have reported "missing" even once it existed.
+2. **This machine's `sdkmanager` cannot see it regardless.** The SDK at
+   `C:\Users\reube\.bubblewrap\android_sdk` only has the *deprecated* standalone
+   `tools/bin/sdkmanager`, which speaks an older repository schema and silently omits modern
+   packages. `sdkmanager --install "platforms;android-37.0"` fails with `Failed to find package`
+   even though the package demonstrably exists. That tool also needs an explicit
+   `--sdk_root=...`, or it dies with a bare `IllegalArgumentException: Could not create settings`.
+
+The exact local failure, confirmed by actually running it rather than inferred (`./gradlew
+assembleDebug` with the committed `compileSdk = 37`):
+
+```
+Could not determine the dependencies of task ':app:compileDebugJavaWithJavac'.
+> Failed to find target with hash string 'android-37.0-ext19' in:
+  C:\Users\reube\.bubblewrap\android_sdk
+```
+
+Note the resolved target is **`android-37.0-ext19`** — the combination of `compileSdk = 37` and
+`compileSdkExtension = 19`. Google's manifest lists `platforms;android-37.0` and `android-37.1`
+but no `-ext` variants for 37 (unlike 36, which has `-ext18`/`-ext19`). Whoever installs
+cmdline-tools should therefore confirm that a platform satisfying `android-37.0-ext19` can
+actually be installed, and not assume `platforms;android-37.0` alone is sufficient — CI resolves
+this fine, so it is satisfiable somehow, but the mechanism hasn't been confirmed here. Note also
+that AGP fails at *task-dependency resolution*, not configuration: `detekt`/`ktlintCheck` run
+happily with `compileSdk = 37` on this machine, so a green lint run proves nothing about the SDK.
+
+So this was never a "Google hasn't shipped it" problem — it is a local toolchain problem, and it
+is fixed by installing modern `cmdline-tools`, not by waiting. Corroborating evidence that was
+available and unread: **CI has been green this whole time**, building `compileSdk = 37` on
+`android-actions/setup-android`, which uses current cmdline-tools. A CI run passing the exact
+configuration a local doc called impossible should have been treated as a contradiction to
+resolve rather than a coincidence.
+
+Left `compileSdk = 37` committed and unchanged. Installing cmdline-tools is logged in
+NEEDS_YOUR_INPUT.md rather than done unprompted, because it means downloading and unpacking a
+toolchain onto the owner's machine.
+
+### First real local build: the whole app compiles, all 52 tests pass, release/R8 works (2026-08-25)
+The first time this project has ever been compiled from a session with a real toolchain — the
+thing every prior HANDOFF.md called the top priority. Run on the Windows dev machine with
+JDK 17 (`-Dorg.gradle.java.home=C:\Users\reube\.bubblewrap\jdk17-x64\jdk-17.0.20+8`; the default
+`JAVA_HOME` is still JRE-only and has no `javac`, as AGENTS.md warns).
+
+| Command | Result |
+|---|---|
+| `./gradlew testDebugUnitTest assembleDebug` | **BUILD SUCCESSFUL** (3m 17s) — `app-debug.apk`, 44.3 MB |
+| 52 unit tests across 7 classes | **52 passed, 0 failures, 0 skipped** |
+| `./gradlew assembleRelease` | **BUILD SUCCESSFUL** — `app-release-unsigned.apk`, 6.1 MB |
+
+**The headline is that nothing was wrong.** Four sessions of "carefully hand-verified, never
+compiled" code compiled clean on the first attempt: the Oumatjie rename (`applicationId`
+`com.oumatjie.app` alongside the unchanged `com.granify.app` namespace — the combination
+HANDOFF.md flagged as least-precedented), `androidx.core:core-splashscreen`, the design-system
+shape/`CardColors` refactor, Tier 1 categorization, and the AI provider abstraction all build.
+R8/ProGuard shrinks 44.3 MB → 6.1 MB with `lintVitalRelease` passing, so the release path and the
+ProGuard rules are sound. This does **not** retire the "hand-verified ≠ verified" caveat — the
+first CI run still found a real `authorize()` bug that hand-review missed — but the specific
+compile-risk items listed in HANDOFF.md are now genuinely closed.
+
+Caveat on how this was run: the local SDK has no `android-37` platform (see the entry above), so
+the build was executed with `compileSdk` temporarily set to 36 against the installed
+`android-36-ext19`, then reverted to the committed 37. Only warnings surfaced: several test files
+use `kotlinx.coroutines` APIs needing `@OptIn(ExperimentalCoroutinesApi::class)`. Harmless today,
+but they are warnings that will become errors in a future coroutines release — worth a small
+cleanup pass.
+
+### Graphify installed from the verified official source; its "no API key needed" claim is wrong in practice (2026-08-25)
+Installed per TOOLING.md, and the domain warning there held up. **Provenance was cross-checked
+before anything was installed**, all three official sources agreeing: PyPI `graphifyy` 0.9.49
+declares `Homepage`/`Repository` = `github.com/Graphify-Labs/graphify`, Apache-2.0. Nothing
+resembling `graphify.net` appears anywhere in the package metadata.
+
+**The unverifiable star count from TOOLING.md is now verified.** That doc flagged the claimed
+"105K+ GitHub stars" as coming only from the project's own site and its own YC page, and asked a
+future session with network access to sanity-check it. `api.github.com/repos/Graphify-Labs/graphify`
+reports **110,290 stars, 10,733 forks**, repo created 2026-04-03, last pushed 2026-08-24. The
+claim holds, from an independent source. Treat TOOLING.md's skepticism as resolved, not standing.
+
+**Install had to deviate from TOOLING.md's `pip install graphifyy`**, because this machine has no
+real Python — `python` resolves to the Microsoft Store stub. Installed with `uv` instead
+(`uv tool install graphifyy --python <explicit interpreter>`), landing at
+`C:\Users\reube\.local\bin\graphify.exe`. Two Windows-specific snags worth recording: `uv` fails
+to create its "Python minor version link" (`Missing expected target directory`) unless the
+interpreter is passed explicitly, and `~/.local/bin` needed `uv tool update-shell` to reach PATH.
+
+**One TOOLING.md claim is wrong and should not be relied on.** It states Graphify "needs no API
+key of its own — it rides on Claude Code's existing credentials." The CLI does not: `graphify .`
+exits with `error: no LLM API key found (20 doc/paper/image file(s) need semantic extraction)`
+and asks for `ANTHROPIC_API_KEY` or similar. Since this project deliberately has no API key
+anywhere (see NEEDS_YOUR_INPUT.md), the graph was built with `--code-only`, which uses purely
+local tree-sitter AST parsing and no network:
+
+- **451 nodes, 1019 edges, 19 communities** across the 60 code files, 95% EXTRACTED / 5% INFERRED
+- **No import cycles detected**
+- Architectural hubs, in order: `MailViewModel` (35 edges), `AppContainer` (28), `GmailMailRepository` (21), `MailRepository` (18)
+- `AppContainer` has the highest betweenness (0.198) — it bridges five of the six communities, which is expected for a hand-rolled DI container but makes it the single riskiest file to change
+
+The 19 doc files (this repo's real depth) are therefore **not** in the graph. A future session
+with a key, or the `--backend=claude-cli` path, could index them. Output goes to `graphify-out/`,
+which is gitignored — it is a rebuildable artifact (`graphify update .`, no API cost), not source.
+
+### detekt and ktlint added, both baselined rather than auto-formatting the codebase (2026-08-25)
+TOOLING.md item 3, wired into `ci.yml` as a `detekt ktlintCheck` step ahead of the unit tests.
+detekt 1.23.8, ktlint-gradle 14.2.0 (both latest; versions checked against the Gradle plugin
+repository's `maven-metadata.xml`, not assumed).
+
+**detekt: 45 weighted issues**, recorded in `config/detekt/baseline.xml`. Almost all are
+stylistic (`MagicNumber`, `MaxLineLength`, `ReturnCount`), but three are worth a human look and
+were deliberately *not* silenced:
+- `SwallowedException` at `AnthropicAiProvider.kt:31` and `:43`, and `GmailMailRepository.kt:42`
+  — caught exceptions whose original cause is discarded. Plausibly deliberate graceful
+  degradation, but in an auth/network path that is exactly where a silent failure hides a real
+  bug. Not changed here: altering error handling is a behavior change, not a lint fix.
+- `MatchingDeclarationName` on `GranifyApplication.kt` holding `OumatjieApplication` — detekt
+  correctly spotting the deliberate rename artifact documented in the rename entry below. A good
+  sanity check that the tool works; not something to "fix."
+
+`config/detekt/detekt.yml` records only deviations from defaults, each with a reason — the main
+one being that `@Composable` functions are PascalCase by Compose convention, which detekt's
+default `FunctionNaming` rule would flag on essentially every UI file. (Note for anyone editing
+that file: `FunctionNaming` lives under `naming`, not `style`; detekt fails hard with
+`Property 'style>FunctionNaming' is misspelled or does not exist` if misplaced.)
+
+**ktlint: a code-style decision, not just a config.** Out of the box, ktlint 1.x uses the
+`ktlint_official` style and reported **542 violations** — not because the code is sloppy, but
+because that style mandates aggressive function-signature/class-signature/multiline wrapping that
+this hand-written codebase doesn't use. Setting `ktlint_code_style = intellij_idea` in a new
+`.editorconfig` (which also matches how the code was actually written) dropped that to **174**,
+all pure whitespace. Those 174 are baselined in `config/ktlint/baseline.xml` rather than
+auto-fixed: `./gradlew ktlintFormat` would clean them up, but it rewrites ~60 files in one
+unreviewable diff, across code whose runtime behavior is still only partly verified. That
+reformat should be its own reviewed commit if it's wanted, not a side effect of adding a linter.
+`.editorconfig` is the single source of truth for style so the IDE and Gradle can't disagree.
+
+Net effect: **CI now fails on new lint issues only**, and the existing backlog is recorded in two
+baseline files instead of being hidden by disabled rules.
+
+### LICENSE recommended (Apache 2.0) and drafted; repo made public with CodeQL, Secret Protection, Dependabot, and a branch ruleset on `main` (2026-08-25)
+The repo went public this session. Closing out the loose ends that follow from that:
+
+**LICENSE**: asked directly for a recommendation rather than a neutral comparison. Went with
+**Apache 2.0** — it's already the ecosystem norm for Android projects (AOSP and most Google
+libraries this project depends on use it), its patent grant/termination clause is free upside MIT
+doesn't have, and GPL's real distinguishing feature — forcing forks to stay open-source — doesn't
+fit a solo project that may want flexibility later (monetization, dual-licensing, whatever comes
+up). A complete `LICENSE` file was drafted and delivered; `docs/NEEDS_YOUR_INPUT.md`'s entry is
+updated accordingly but kept open, since a recommendation isn't the project owner's own decision
+until they confirm or swap it.
+
+**Repo settings, walked through live over screenshots**: CodeQL default setup is on (confirmed
+running — `docs/TOOLING.md`'s "revisit once public" note is now actionable). Secret scanning
+turned out to be labeled **"Secret Protection"** on the Advanced Security settings page, not
+"Secret scanning" as referred to earlier — same feature, just GitHub's current naming; it's a
+single "Enable" click at the bottom of that page, same place CodeQL and Dependabot live. Also
+pointed at enabling Dependabot alerts and version updates from that same page while there, closing
+out `docs/TOOLING.md`'s recommendation #1 (previously not yet actioned).
+
+**Branch ruleset on `main`**: talked through the in-progress GitHub ruleset UI. Two rules recommended
+outright regardless of anything else — **Restrict deletions** and **Block force pushes** — cheap
+safety nets against an accidental mistake by the owner or an Action, not really about outside
+actors (a non-collaborator can't push to this repo directly regardless of any ruleset — they can
+only open a PR from a fork — so a ruleset doesn't close an external gap here, only a self-inflicted
+one). **Require a pull request before merging** was left as the project owner's own call rather
+than a blanket recommendation: with the bypass list empty it would also block the owner's own
+direct `git push` to `main` going forward, a real workflow change worth choosing deliberately
+rather than accepting as a side effect of copying a "best practice" checklist. **Also easy to
+miss**: **Enforcement status defaults to "Disabled"** on a new ruleset — has to be switched to
+Active or none of the configured rules do anything — and **Target branches defaults to
+unconfigured** — has to be pointed at `main` (or "default branch") explicitly, or the ruleset
+matches nothing.
 
 ### `claude.yml` gated to the repo owner only, ahead of a possible switch to a public repo (2026-08-25)
 The project owner asked whether there's any downside to making the repo public now, specifically

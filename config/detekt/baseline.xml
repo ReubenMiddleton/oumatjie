@@ -1,0 +1,40 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MagicNumber:Base64Url.kt$Base64Url$4</ID>
+    <ID>MagicNumber:MimePayloadParsing.kt$1024</ID>
+    <ID>MagicNumber:MimePayloadParsing.kt$1024.0</ID>
+    <ID>MagicNumber:MimePayloadParsing.kt$6</ID>
+    <ID>MagicNumber:MockAttachmentDownloader.kt$MockAttachmentDownloader$300</ID>
+    <ID>MagicNumber:MockMailRepository.kt$MockMailRepository$100</ID>
+    <ID>MagicNumber:MockMailRepository.kt$MockMailRepository$150</ID>
+    <ID>MagicNumber:MockMailRepository.kt$MockMailRepository$250</ID>
+    <ID>MagicNumber:NetworkModule.kt$NetworkModule$20</ID>
+    <ID>MagicNumber:PdfViewerActivity.kt$33</ID>
+    <ID>MagicNumber:TextScale.kt$TextScale.EXTRA_LARGE$1.3f</ID>
+    <ID>MagicNumber:TextScale.kt$TextScale.LARGE$1.15f</ID>
+    <ID>MatchingDeclarationName:GranifyApplication.kt$OumatjieApplication : Application</ID>
+    <ID>MaxLineLength:CategoryAssignerTest.kt$CategoryAssignerTest$CategoryAssigner.assign(summary("Thanks for shopping with us", preview = "Here is your receipt for order #4821."))</ID>
+    <ID>MaxLineLength:CategoryAssignerTest.kt$CategoryAssignerTest$assertEquals(StarterCategories.Bills, CategoryAssigner.assign(summary("Your account statement and order history")))</ID>
+    <ID>MaxLineLength:MailScreens.kt$text = if (message.attachmentCount == 1) "Contains 1 document" else "Contains ${message.attachmentCount} documents"</ID>
+    <ID>MaxLineLength:MailViewModel.kt$MailViewModel$_snackbarMessages.send(errorMessageFor(failure, "We could not open this message. Please try again."))</ID>
+    <ID>MaxLineLength:MailViewModel.kt$MailViewModel$errorMessage = errorMessageFor(failure, "We could not finish this message. Please try again.")</ID>
+    <ID>MaxLineLength:MailViewModel.kt$MailViewModel$errorMessage = errorMessageFor(failure, "We could not move this message to Trash. Please try again.")</ID>
+    <ID>MaxLineLength:MailViewModel.kt$MailViewModel$errorMessage = errorMessageFor(failure, "We could not open this document. Please try again.")</ID>
+    <ID>MaxLineLength:MailViewModel.kt$MailViewModel$state.copy(isLoading = false, errorMessage = errorMessageFor(failure, "We could not load your mail."))</ID>
+    <ID>MaxLineLength:MailViewModelTest.kt$MailViewModelTest.FakeAiProvider$override suspend</ID>
+    <ID>MaxLineLength:MimePayloadParsingTest.kt$MimePayloadParsingTest$parts = listOf(GmailMessagePart(mimeType = "text/plain", body = GmailMessagePartBody(data = plain)))</ID>
+    <ID>MaxLineLength:MimePayloadParsingTest.kt$MimePayloadParsingTest$val expected = monthAgo.format(java.time.format.DateTimeFormatter.ofPattern("MMM d", java.util.Locale.getDefault()))</ID>
+    <ID>MaxLineLength:SessionViewModelTest.kt$SessionViewModelTest.FakeGmailApiService$override suspend</ID>
+    <ID>ReturnCount:MimePayloadParsing.kt$internal fun extractBodyText(root: GmailMessagePart): String</ID>
+    <ID>ReturnCount:MimePayloadParsing.kt$internal fun parseSender(fromHeader: String?): Pair&lt;String, String&gt;</ID>
+    <ID>ReturnCount:MimePayloadParsing.kt$private fun findPart(part: GmailMessagePart, mimeType: String): GmailMessagePart?</ID>
+    <ID>SwallowedException:AnthropicAiProvider.kt$AnthropicAiProvider$e: Exception</ID>
+    <ID>SwallowedException:GmailMailRepository.kt$GmailMailRepository$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:AnthropicAiProvider.kt$AnthropicAiProvider$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:GmailMailRepository.kt$GmailMailRepository$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:GoogleAuthManager.kt$GoogleAuthManager$e: Exception</ID>
+    <ID>TooManyFunctions:MimePayloadParsing.kt$com.granify.app.data.gmail.MimePayloadParsing.kt</ID>
+  </CurrentIssues>
+</SmellBaseline>

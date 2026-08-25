@@ -2,6 +2,35 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("io.gitlab.arturbosch.detekt")
+    id("org.jlleitschuh.gradle.ktlint")
+}
+
+// Static analysis and formatting. See docs/TOOLING.md item 3 and docs/DECISIONS.md's
+// "detekt and ktlint added" entry for why these are configured non-blocking on existing
+// code (baseline) rather than failing CI on a codebase that predates them.
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom(files("$rootDir/config/detekt/detekt.yml"))
+    baseline = file("$rootDir/config/detekt/baseline.xml")
+    parallel = true
+}
+
+ktlint {
+    // Code style is set in .editorconfig (`ktlint_code_style`), not here, so the IDE and the
+    // Gradle task can never disagree about it. See .editorconfig for why intellij_idea is used.
+    //
+    // Baseline: after the .editorconfig style fix, 174 pure-whitespace violations remained
+    // (mostly signature/argument wrapping). They are recorded here rather than auto-formatted,
+    // so CI fails on NEW issues only — same approach as detekt's baseline above. To actually
+    // clean them up, run `./gradlew ktlintFormat` and delete this baseline; that is a deliberate
+    // ~60-file reformat and should be its own reviewed commit, not a side effect of adding lint.
+    baseline.set(file("$rootDir/config/ktlint/baseline.xml"))
+    // Reporters kept to plain text + checkstyle so CI logs stay readable and tools can parse them.
+    reporters {
+        reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.PLAIN)
+        reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.CHECKSTYLE)
+    }
 }
 
 android {
