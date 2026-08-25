@@ -119,6 +119,47 @@ What "verified" actually means for this snapshot, so it doesn't need to be re-de
 
 ## Decisions
 
+### Dependabot's nine safe bumps merged; OkHttp 4→5 deliberately deferred (2026-08-25)
+Dependabot opened 10 PRs the day it was enabled. Nine are merged; each was verified locally
+(`detekt ktlintCheck testDebugUnitTest assembleDebug`, plus `assembleRelease` for the Kotlin
+bump) rather than merged on CI's word alone:
+
+- **5 GitHub Actions bumps** — `checkout@v4→v7`, `setup-java@v4→v5`, `cache@v4→v6`,
+  `upload-artifact@v4→v7`, `setup-android@v3→v4`. Each tag was confirmed to actually exist via
+  GitHub's API before pushing, since a bad tag breaks every workflow at once.
+- **Compose BOM `2026.06.00→2026.08.00`** and **kotlinx-coroutines-test `1.10.2→1.11.0`** — clean,
+  52 tests pass. (The latter also brings coroutines-test in line with
+  `kotlinx-coroutines-play-services`, which was already at 1.11.0.)
+- **Kotlin plugins `2.3.21→2.4.10`** — compose and serialization must move together. Dependabot
+  raised them as two PRs touching adjacent lines, so the second merge conflicted; applied
+  directly instead. Debug, release/R8, and all 52 tests pass. Release APK grows 6.11 → 6.76 MB,
+  consistent with Kotlin 2.4's stdlib rather than an R8 regression.
+
+**OkHttp `4.12.0 → 5.5.0` was NOT merged, and the existing pin is correct.** The comment in
+`app/build.gradle.kts` says OkHttp is pinned to what `retrofit:3.0.0` itself depends on so the
+pairing is one that's actually tested. **That is still factually true**: Retrofit 3.0.0's POM was
+fetched from Maven Central and declares `com.squareup.okhttp3:okhttp:4.12.0`, and 3.0.0 is the
+latest Retrofit there is — there's no newer Retrofit built against OkHttp 5 to move to.
+
+It was tested anyway, on a throwaway branch, and **it does build**: debug, release/R8, and all 52
+tests pass, and Gradle resolves it cleanly (`retrofit -> okhttp 4.12.0 -> 5.5.0`, no duplicate
+classes; OkHttp 5 additionally pulls in a new `okhttp-android` artifact). So this is not a
+"doesn't work" verdict.
+
+The reason to defer is **variable isolation, not breakage**. Every one of those 52 tests uses
+hand-written fakes; not a single real HTTP request is exercised anywhere in this project, and the
+Gmail integration has still never run against a live account (see NEEDS_YOUR_INPUT.md). A green
+build here proves the code *compiles* against OkHttp 5 — it proves nothing about how Retrofit 3.0.0
+behaves on an OkHttp major it wasn't released against, because nothing in this repo can currently
+exercise that path. Merging it now would mean the first-ever live Gmail test runs with two
+unknowns at once: this project's own never-executed networking code, *and* an untested library
+pairing. If that test fails, there'd be no way to tell which one caused it.
+
+**Recommended sequence**: get the Gmail integration working on the known-tested pairing first,
+then bump OkHttp and re-verify against the same live account. At that point the bump is a
+one-line change with a real regression test behind it. Until then the PR stays open; there is no
+security advisory against 4.12.0 driving urgency.
+
 ### Android SDK Platform 37 *is* published — the long-standing "not published yet" gap was stale, and the real blocker is this machine's deprecated `sdkmanager` (2026-08-25)
 Recorded since 2026-08-17 as a hard environmental blocker ("Platform 37 isn't published to
 Google's SDK repository yet; only `build-tools;37.0.0` exists"), repeated in AGENTS.md, `ci.yml`'s

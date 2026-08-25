@@ -92,9 +92,13 @@ Also this session:
   exceptions** in `AnthropicAiProvider.kt` (×2) and `GmailMailRepository.kt`.
 - **gitleaks workflow added** (`.github/workflows/gitleaks.yml`), scanning full history on every
   push/PR.
-- **Dependabot is live and has opened 10 PRs** — you added `dependabot.yml` directly on GitHub.
-  None reviewed. Includes majors (Kotlin 2.4, OkHttp 5) that shouldn't be batch-merged; see
-  NEEDS_YOUR_INPUT.md.
+- **Dependabot went live (you added `dependabot.yml`) and 9 of its 10 PRs are merged** — 5 GitHub
+  Actions bumps, Compose BOM, coroutines-test, and Kotlin `2.3.21 → 2.4.10`. Each was verified
+  locally, not merged on faith; the Kotlin bump also passed a release/R8 build. **OkHttp 4 → 5 is
+  deliberately left open** — it builds fine, but `app/build.gradle.kts` pins OkHttp to Retrofit
+  3.0.0's own tested pairing (still accurate — checked Retrofit's POM), and every test here uses
+  fakes, so a green build says nothing about runtime. Merging it before the first live Gmail test
+  would put two untested things in that test at once. See NEEDS_YOUR_INPUT.md.
 - **The licence gap is closed.** The `LICENSE` file drafted last session had never been committed,
   so the public repo had `"license": null` — publicly readable but legally unusable by anyone. The
   project owner confirmed Apache 2.0 and it is now committed and pushed; GitHub reports
@@ -289,9 +293,10 @@ committed" gap that every earlier version of this file flagged as top priority.
    CodeQL remains from TOOLING.md, and the repo is public now, so it's free — worth adding.
    TOOLING.md itself now contains two claims this session proved wrong (its `pip install`
    instruction, and "no API key needed"); read the corrections in DECISIONS.md alongside it.
-4. **Work through the 10 Dependabot PRs** (NEEDS_YOUR_INPUT.md). They now *can* be tested locally
-   rather than merged on faith — do the 6 Actions bumps first, then Compose BOM, then Kotlin 2.4,
-   with OkHttp 4→5 last and most carefully, since it touches the real Gmail networking path.
+4. **Decide the OkHttp 4→5 question** (NEEDS_YOUR_INPUT.md) — the one Dependabot PR left open.
+   It builds clean; the argument for waiting is that it shouldn't land in the same first live
+   Gmail test as this project's own never-executed networking code. Naturally sequenced *after*
+   step 3 (real Gmail access), not before.
 5. **Look at the three swallowed exceptions detekt found** — `AnthropicAiProvider.kt:31` and
    `:43`, `GmailMailRepository.kt:42`. Deliberately not "fixed" this session because changing
    error handling is a behavior change, not a lint fix, and these sit in auth/network paths where

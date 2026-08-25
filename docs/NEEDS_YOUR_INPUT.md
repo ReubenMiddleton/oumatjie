@@ -15,18 +15,24 @@ stalling. Newest first within each section.
 
 ## Blocked
 
-### 10 open Dependabot PRs awaiting review (new 2026-08-25)
-Dependabot went live this session (you added `.github/dependabot.yml` directly on GitHub) and has
-already opened **10 PRs** — 6 GitHub Actions bumps and 4 Gradle dependency bumps, including
-Kotlin `2.3.21 → 2.4.10` (both the compose and serialization plugins), OkHttp `4.12.0 → 5.5.0`,
-and Compose BOM `2026.06.00 → 2026.08.00`. None have been reviewed or merged.
+### OkHttp 4 → 5: your call whether to defer (Dependabot #9, still open — 2026-08-25)
+The other nine Dependabot PRs were tested and merged this session. This one was tested too and
+**does build clean** — debug, release/R8, and all 52 tests pass — but was deliberately left
+unmerged, and that's a judgement call worth your sign-off rather than mine.
 
-These aren't all equal risk and shouldn't be batch-merged: the Actions bumps are low-risk, but
-the **Kotlin 2.4** and **OkHttp 5** jumps are majors that can break compilation, and OkHttp 5 in
-particular touches the real Gmail networking path. Now that a local toolchain works, each can
-actually be tested rather than merged on faith. **To resolve**: decide whether you want them
-worked through — a reasonable order is the 6 Actions bumps first (low risk, immediate), then
-Compose BOM, then Kotlin, then OkHttp last with the most attention.
+The short version: `app/build.gradle.kts` deliberately pins OkHttp to what `retrofit:3.0.0`
+declares, and that pin is still correct (verified against Retrofit's POM on Maven Central;
+3.0.0 is the newest Retrofit and it declares OkHttp 4.12.0). Every test in this repo uses fakes,
+so a green build says the code *compiles* against OkHttp 5 and nothing about how Retrofit
+behaves on it at runtime. Since the Gmail integration has never once run against a live account,
+merging now would put two untested things — your never-executed networking code and an untested
+library pairing — into the same first live test, with no way to tell which broke it.
+
+**Recommendation**: leave it until Gmail works for real on the current pairing, then bump and
+re-verify against the same account. No security advisory against 4.12.0 makes this urgent. Full
+reasoning in `docs/DECISIONS.md`'s "Dependabot's nine safe bumps merged" entry. **To resolve**:
+tell me to merge it anyway if you'd rather stay current, or leave the PR open until Gmail is
+verified — either is defensible, I just didn't want to silently overrule a documented decision.
 
 ### AI provider API key (updated 2026-08-24 — plumbing now built, just needs your key)
 Scam/phishing detection and summarization (see [`docs/AI_ASSISTANT.md`](AI_ASSISTANT.md)) are
