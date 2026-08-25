@@ -1,9 +1,18 @@
 name: Claude Code
 
-# Responds whenever someone (with write access to this repo) mentions @claude in an issue or
-# pull request comment/review, or in a newly opened issue's title/body. Authenticates with the
-# CLAUDE_CODE_OAUTH_TOKEN repo secret (a subscription token from `claude setup-token`, not a
-# metered API key — see docs/DECISIONS.md if this ever needs revisiting).
+# Responds when the repo owner mentions @claude in an issue or pull request comment/review, or
+# in a newly opened issue's title/body. Authenticates with the CLAUDE_CODE_OAUTH_TOKEN repo
+# secret (a subscription token from `claude setup-token`, not a metered API key — see
+# docs/DECISIONS.md if this ever needs revisiting).
+#
+# Gated on github.actor == github.repository_owner (added 2026-08-25, before this repo went
+# public): without this, ANY GitHub account could open an issue or leave a comment containing
+# "@claude" and trigger this workflow with contents:write/pull-requests:write, running against
+# the repo owner's own subscription token. No auto-merge anywhere in this repo limits the blast
+# radius (a stranger's prompt could open an unwanted PR, never land one on main unreviewed), but
+# it could still burn subscription usage or produce spammy/abusive PRs — worth closing off
+# outright rather than relying on the no-auto-merge safety net alone. See docs/DECISIONS.md's
+# "Repo made public" entry.
 
 on:
   issue_comment:
@@ -18,10 +27,13 @@ on:
 jobs:
   claude:
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      github.actor == github.repository_owner &&
+      (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+        (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: write

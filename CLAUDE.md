@@ -56,7 +56,12 @@ were never possible before:
    accessibility-service run.
 3. **Work through `docs/SETUP.md` §3** with the project owner to register a real Google Cloud
    OAuth client, then exercise the Gmail integration against a real inbox for the first time.
-4. Everything else in `HANDOFF.md`'s "Recommended next steps" — that list is still accurate and
+4. **Set up Graphify and the repo-hygiene tools researched 2026-08-25** — `docs/TOOLING.md` has
+   the full writeup, a domain warning worth reading before installing anything
+   (`graphify.net` ≠ the real project), and a suggested order. The project owner asked for this to
+   be prioritized early once a local session exists, since none of it could actually be installed
+   from the cloud sandbox that researched it (no PyPI access).
+5. Everything else in `HANDOFF.md`'s "Recommended next steps" — that list is still accurate and
    ordered; don't re-derive it from scratch.
 
 ## Local dev environment notes

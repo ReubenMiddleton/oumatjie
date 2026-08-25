@@ -43,6 +43,11 @@ web view — a real, from-scratch native app.
    [`docs/PLAY_STORE_READINESS.md`](docs/PLAY_STORE_READINESS.md) — only needed once Play Store
    submission is actually in progress; both are real drafts, not placeholders, but the privacy
    policy specifically needs a legal review before publishing (see its own drafting note).
+8. [`docs/TOOLING.md`](docs/TOOLING.md) — Graphify and repo-hygiene tooling (Dependabot, gitleaks,
+   detekt/ktlint, CodeQL), researched 2026-08-25. Worth reading early if you're a local/Claude
+   Code session — the project owner asked for this to be set up early, and it needed real network
+   access this project hasn't had until now. Has a domain warning worth reading before installing
+   anything (`graphify.net` ≠ the real project).
 
 ## Current state, as of 2026-08-25 (four sessions total — see below)
 
@@ -71,6 +76,26 @@ predate it:
   subscription token instead of a metered key, why PRs instead of auto-merge, why the scheduled
   workflow deliberately avoids the default `GITHUB_TOKEN` — is in DECISIONS.md's "CI/CD and
   autonomous GitHub Action set up" entry. NEEDS_YOUR_INPUT.md's matching entry is now Resolved.
+
+**A later 2026-08-25 session** researched Graphify (`graphify.net`, per the project owner's
+request) and complementary repo-hygiene tooling, at the project owner's explicit request, to be
+handed off for a local/Claude Code session to actually install — this cloud sandbox has no PyPI
+access, confirmed directly, so nothing below could be installed here. **Important finding**: the
+domain the request pointed at, `graphify.net`, is not the official project — the real project's
+own site (`graphify.com`) publishes a page stating `graphify.net` is unaffiliated and not an
+official source. Full writeup, an honest assessment of the (real, YC-backed, but very new)
+official project, and a prioritized list of complementary tools (Dependabot, gitleaks,
+detekt/ktlint, CodeQL) is in the new `docs/TOOLING.md` — see DECISIONS.md's "Graphify and
+repo-hygiene tooling researched" entry for the short version.
+
+**Same session, in response to "any downside to making the repo public now":** found and fixed a
+real gap in `claude.yml` — its `@claude`-mention trigger had no check on who left the mention,
+which is moot on a private repo but not on a public one (any GitHub account could have triggered
+it, running with write access, authenticated as the owner's own subscription token). Now gated to
+`github.actor == github.repository_owner`. No other downside found — a credential grep of the
+current tree came up clean, and the only other nuance (an unlicensed public repo is visible but
+not legally reusable) is the already-tracked LICENSE decision, not a new one. See DECISIONS.md's
+"`claude.yml` gated to the repo owner only" entry.
 
 **A 2026-08-25 session** worked autonomously on self-selected, no-input-needed follow-ups while
 the project owner was away (explicit instruction: "do as much as possible without my input").
@@ -202,25 +227,29 @@ committed" gap that every earlier version of this file flagged as top priority.
    dependency, since those are among the least-precedented changes still fully unverified. See
    DECISIONS.md's verification-summary addendum for what was and wasn't possible to check without
    a working toolchain before this session.
-2. **Get a LICENSE decision from the user.** The user has said they want this repo public
+2. **Set up Graphify and the repo-hygiene tools from `docs/TOOLING.md`.** The project owner
+   flagged this as a priority once a local/Claude Code session exists, specifically because it
+   should improve efficiency on everything else on this list. Read the domain warning at the top
+   of that doc first — `graphify.net` (what was originally linked) is not the official project.
+3. **Get a LICENSE decision from the user.** The user has said they want this repo public
    eventually; there's currently no license at all. This is a real decision (MIT vs Apache 2.0
    vs something else) with consequences for how others can use the code — ask, don't guess. A
    factual comparison is ready to hand them: `docs/LICENSE_COMPARISON.md` (2026-08-25 session).
    See also DECISIONS.md's "No LICENSE file" gap.
-3. **Rename the real Windows-machine artifacts that this session's text-only rename couldn't
+4. **Rename the real Windows-machine artifacts that this session's text-only rename couldn't
    reach**: the `granify_test` AVD (cosmetic only — see AGENTS.md) and, if desired, a real IDE
    "Rename package" refactor of `com.granify.app` → `com.oumatjie.app` now that Android Studio and
    a real compiler are available to verify it (this session deliberately left the Kotlin
    namespace unchanged — see DECISIONS.md's rename entry for why).
-4. **Get an Anthropic API key from the user and try the AI features for real** (NEEDS_YOUR_INPUT.md
+5. **Get an Anthropic API key from the user and try the AI features for real** (NEEDS_YOUR_INPUT.md
    has the exact steps) — the scam-check and summarization features have never been exercised
    against a real model response, only against hand-written fakes.
-5. **Start the Play Store readiness clock.** `docs/PLAY_STORE_READINESS.md` is new this session
+6. **Start the Play Store readiness clock.** `docs/PLAY_STORE_READINESS.md` is new this session
    and lays out the order — the OAuth restricted-scope/CASA verification and the Play Developer
    account identity verification both have long, unpredictable lead times and are worth starting
    in parallel with everything else on this list, not saved for last. `docs/PRIVACY_POLICY.md`
    needs a real legal review before it's published at oumatjie.com.
-6. **Implement AI_ASSISTANT.md's remaining features, in the order specified there**:
+7. **Implement AI_ASSISTANT.md's remaining features, in the order specified there**:
    calendar-aware reading (5) needs the real `READ_CALENDAR` permission and a device/emulator to
    test against; AI-flagged notifications (6) need `POST_NOTIFICATIONS`; categorization's Tier 1
    is now built (2026-08-25) — what's left is Tier 2 (AI-assisted suggestion) and a rename/merge
@@ -228,9 +257,9 @@ committed" gap that every earlier version of this file flagged as top priority.
    itself suggesting reconsidering whether it's needed once the rest exist. The home-screen widget
    (Jetpack Glance) and static App Shortcuts, both considered in ROADMAP.md, are reasonable next
    candidates once there's compiler access to verify them.
-7. **A real TalkBack pass** on an emulator or device — never actually done, across every session
+8. **A real TalkBack pass** on an emulator or device — never actually done, across every session
    so far.
-8. **Real Google Cloud project setup** (SETUP.md §3) whenever testing against an actual Gmail
+9. **Real Google Cloud project setup** (SETUP.md §3) whenever testing against an actual Gmail
    inbox becomes the priority — currently the single biggest thing that's built but unverified
    against a live account. Note the OAuth client now needs to be registered against
    `com.oumatjie.app` (the `applicationId`), not `com.granify.app` — SETUP.md §3 already reflects
@@ -250,6 +279,7 @@ committed" gap that every earlier version of this file flagged as top priority.
 | `docs/PRIVACY_POLICY.md` | Drafted privacy policy for oumatjie.com — needs legal review before publishing |
 | `docs/PLAY_STORE_READINESS.md` | Checklist: what's done, what's paperwork-only, what's a real engineering gap |
 | `docs/LICENSE_COMPARISON.md` | Factual, non-recommending MIT vs. Apache 2.0 comparison — for the project owner's own LICENSE decision |
+| `docs/TOOLING.md` | Graphify (with a domain warning — `graphify.net` ≠ the real project) and complementary repo-hygiene tooling (Dependabot, gitleaks, detekt/ktlint, CodeQL), researched 2026-08-25, ready for a local/Claude Code session to install |
 | `AGENTS.md` | Machine/tooling setup, working preferences, documentation-update ritual |
 | `HANDOFF.md` | This file |
 | `CLAUDE.md` | Short pointer file read automatically by Claude Code and the GitHub Actions below — points here and to AGENTS.md rather than duplicating them |
@@ -286,6 +316,9 @@ committed" gap that every earlier version of this file flagged as top priority.
 - Do not assume a Google Cloud project or real Gmail credentials exist — they don't; only the demo inbox has been exercised live.
 - Do not assume an Anthropic API key exists anywhere in this project — it doesn't; AI features
   are off by default and have never been exercised against a real model response.
+- Do not assume `graphify.net` is the real Graphify project if you come across it again — the
+  official project's own site explicitly disavows it. Use `graphify.com`/`graphifyy`/
+  `Graphify-Labs/graphify` only. See `docs/TOOLING.md`.
 - Do not assume `docs/PRIVACY_POLICY.md` is ready to publish as-is — it's an accurate,
   code-verified first draft, not a legally reviewed document. See its own drafting note.
 - This machine's local tool paths (SDK/JDK locations, emulator name, known gotchas) are recorded in `AGENTS.md`, not repeated here — check there before rediscovering them from scratch. If working from a different machine, treat that section as a template to redo, not as fact.

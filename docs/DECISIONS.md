@@ -88,6 +88,82 @@ What "verified" actually means for this snapshot, so it doesn't need to be re-de
 
 ## Decisions
 
+### `claude.yml` gated to the repo owner only, ahead of a possible switch to a public repo (2026-08-25)
+The project owner asked whether there's any downside to making the repo public now, specifically
+to get CodeQL/native secret scanning for free (see `docs/TOOLING.md`'s "CodeQL — free later, not
+now" note — private repos need paid GitHub Advanced Security, public repos get it free). Answering
+that honestly meant re-reading `claude.yml` with a public repo's threat model in mind, not the
+private one it was written for.
+
+**Real gap found**: `claude.yml` triggers on `issue_comment`, `pull_request_review_comment`,
+`pull_request_review`, and `issues: opened`, gated only on the comment/issue body containing
+`@claude` — with no check on *who* left it. On a private repo that's moot (only the owner has
+access at all). On a public repo, it isn't: any GitHub account could open an issue or leave a
+comment mentioning `@claude` and the workflow would run with `contents: write` /
+`pull-requests: write`, authenticated as the repo owner's own `CLAUDE_CODE_OAUTH_TOKEN`. The
+no-auto-merge rule already in place (see the CI/CD entry below) stops a stranger's prompt from
+ever landing changes on `main` unreviewed, but it wouldn't stop them from burning the owner's own
+Claude subscription usage or generating spammy/abusive PRs and issue comments in their name.
+
+**Fixed**: added `github.actor == github.repository_owner` to the front of the job's `if:`
+condition, so the workflow now only ever runs for events the repo owner themselves triggered,
+regardless of repo visibility. `claude-ci-watch.yml` didn't need the same fix — it only runs on a
+schedule and `workflow_dispatch`, and GitHub restricts manual dispatch to accounts with write
+access by default. `ci.yml` (build+test on push/PR) also didn't need a code change: GitHub's own
+default behavior — pull requests from first-time outside contributors require a maintainer to
+manually approve the workflow run before it executes — already covers the equivalent risk there
+(a stranger's fork PR running arbitrary code in Actions), without this project needing to
+configure anything for it.
+
+**On the underlying question — no other downside found to going public right now.** A grep across
+the codebase for API keys, tokens, and other credential patterns turned up nothing hardcoded (only
+variable/parameter names like `apiKey`, consistent with `docs/NEEDS_YOUR_INPUT.md`'s existing note
+that no Anthropic key or Google Cloud project exists yet) — this only checked the current working
+tree, not full git history, but that history is short (two commits) and this session's own
+`git log` review found nothing to contradict it. The one nuance worth naming rather than treating
+as a downside: an unlicensed public repo is visible to anyone but not actually reusable by anyone
+(default copyright applies with no LICENSE file) — that's a separate, already-tracked decision
+(`docs/NEEDS_YOUR_INPUT.md`'s "LICENSE choice"), not something going public changes or requires.
+
+### Graphify and repo-hygiene tooling researched; nothing installed yet, use the official source only (2026-08-25)
+The project owner pointed at `graphify.net` — "an open-source tool that turns your codebase,
+documents, PDFs, and images into a queryable knowledge graph for AI coding assistants" — asking
+for it to be set up cleanly for this repo, plus a scan for complementary tooling, both to be
+handed off for a local/Claude Code session to act on. Full research, honest assessment, and a
+recommended tool list live in the new `docs/TOOLING.md` — this entry is the short version.
+
+**The domain the request pointed at is not the official project.** The real project lives at
+`graphify.com` (PyPI package `graphifyy`, GitHub `Graphify-Labs/graphify`) — its own site
+publishes a dedicated page stating `graphify.net` is "not affiliated with or operated by Graphify
+Labs... not an official source." Whatever gets set up here should come from `graphify.com` /
+`graphifyy` / `Graphify-Labs/graphify` only. This is the one finding worth remembering even
+without reading the full doc.
+
+**Assessed as a real, actively-developed project, not a scam** — named founder with a public
+LinkedIn/X presence, a genuine Y Combinator company page (S26 batch), dual MIT/Apache-2.0
+license, and enough real implementation detail (tree-sitter AST parsing, Leiden community
+detection) that a pure marketing site wouldn't bother including it. One number is flagged rather
+than repeated as fact: both the official site and its YC page claim 105K+ GitHub stars, which this
+session couldn't independently verify (`api.github.com` is blocked by this sandbox's network
+policy, the same restriction already documented for general GitHub access) — the only sources for
+that number are the project's own site and its own YC profile. Worth a five-second sanity check
+from a local session before leaning on it, though it doesn't change the recommendation either way:
+the tool's actual footprint (local-only CLI, no new credentials, reads the repo, writes nothing to
+it) is low-risk regardless of whether the star count holds up.
+
+**Nothing was installed this session** — confirmed directly, not assumed: `pip install` inside a
+throwaway venv here returns "No matching distribution found," and `curl -I
+https://pypi.org/simple/graphifyy/` returns `403 host_not_allowed` — this sandbox's network policy
+blocks PyPI the same way it already blocks general GitHub access and `apt` (see this file's CI/CD
+entry below for the precedent). Setup needs a local/Claude Code session with real network access.
+
+**Also scouted, for the same local session**: Dependabot version updates (free, native, no new
+tool to trust), `gitleaks` (free secret scanning that works on a private repo without paying for
+GitHub Advanced Security, which this repo would otherwise need), detekt + ktlint (Kotlin-specific
+static analysis and formatting), and CodeQL (free, but only once this repo goes public — private
+repos need paid Advanced Security, confirmed against GitHub's own billing docs). Full detail,
+setup commands, and a suggested order are in `docs/TOOLING.md`.
+
 ### CI/CD and autonomous GitHub Action set up; direct git push from the cloud sandbox ruled out (2026-08-25)
 The project owner asked for the repo to be tracked on their personal GitHub, kept cleanly
 separate from their work GitHub/Codex setup, and — going further — for commits, PR fixes, and
