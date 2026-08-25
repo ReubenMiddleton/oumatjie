@@ -62,10 +62,20 @@ owner's Windows machine ran the real toolchain:
 
 **Nothing was broken.** Four sessions of hand-written, never-compiled code — the Oumatjie rename,
 the splash screen, the design-system refactor, Tier 1 categorization, the AI provider abstraction
-— compiled on the first attempt. The "hand-verified, not compiled" caveat below is therefore
-**discharged for compile-correctness**, though *not* for runtime behavior: nothing has been run on
-a device or emulator since 2026-08-17, and TalkBack still has never been tested. Full detail in
-DECISIONS.md's new "Verification summary (2026-08-25, first local session with a real toolchain)".
+— compiled on the first attempt.
+
+**And it runs.** The debug APK was installed on the `granify_test` emulator — the first execution
+of any post-2026-08-17 work — with **no crashes, no ANRs, and no app errors in logcat**. Confirmed
+live: the namespace/applicationId split resolves correctly at runtime
+(`com.oumatjie.app/com.granify.app.MainActivity`), the "Unread" text label is really there, Tier 1
+categorization labels the bank message "Bills", first-contact warnings appear, and mark-as-read
+works end-to-end via "Done reading". Atkinson Hyperlegible and the button hierarchy look right.
+
+**TalkBack was enabled for the first time ever and demonstrably reads the app** — but the pass is
+*not* complete: whether the 2026-08-25 heading-semantics fix actually works could not be verified
+headlessly. Read DECISIONS.md's "First emulator run since 2026-08-17" for exactly what was and
+wasn't established, and don't upgrade it to "TalkBack verified" in a future summary.
+Full detail also in DECISIONS.md's "Verification summary (2026-08-25, first local session)".
 
 Also this session:
 
@@ -267,9 +277,10 @@ oversights.
 anything against a real Anthropic API call — no key has been entered anywhere, by design (see
 NEEDS_YOUR_INPUT.md). No Google Cloud project exists either (SETUP.md §3 is the checklist).
 
-**TalkBack has still never actually been tested on a real device/emulator** — a static
-read-through audit (2026-08-25 session, see above) fixed what it could find by reading source, but
-that's not a substitute for turning TalkBack on and listening. Still the top open gap.
+**TalkBack — partially addressed 2026-08-25, superseding the line that used to be here.** It has
+now been enabled on an emulator for the first time and demonstrably reads this app. What's still
+open is narrower than "never tested": the **heading semantics remain unverified**, and nobody has
+listened to it. See the top of this file and DECISIONS.md's "First emulator run since 2026-08-17".
 
 **The repository is now committed and pushed — see the top of this section.** `git log` on
 `main` has real history as of 2026-08-25; this superseded the long-standing "nothing is
@@ -277,17 +288,19 @@ committed" gap that every earlier version of this file flagged as top priority.
 
 ## Recommended next steps, in priority order
 
-1. ~~**Run the real build and test suite locally.**~~ **Done 2026-08-25** — debug build, release
-   build, and all 52 tests pass. See the top of this file. What's left from the original item:
-   **an emulator smoke pass**, which is *not* done and is now the oldest unverified thing in the
-   project (last real device run: 2026-08-17, before three sessions of changes). Fold this into
-   step 2 below rather than treating it as separate.
-2. **Run on a real emulator and do a genuine TalkBack pass.** Now the single highest-value thing
-   nobody has ever done. A working AVD already exists (`granify_test`, see AGENTS.md for how to
-   drive it reliably — don't guess tap coordinates from screenshots). Two things to verify beyond
-   accessibility, both of which compiled clean but have never *run*: the splash screen, and the
-   2026-08-25 static-audit fixes (heading semantics and the "Unread" text label) actually being
-   announced by TalkBack. The toolchain is ready — `compileSdk = 37` builds locally as committed.
+1. ~~**Run the real build and test suite locally, and do an emulator smoke pass.**~~ **Done
+   2026-08-25** — debug build, release build, all 52 tests, and a full emulator run. The app works:
+   no crashes, and the rename, unread label, categorization, first-contact warnings and
+   mark-as-read were all confirmed live. See the top of this file.
+2. **Write instrumented Compose tests for the accessibility semantics.** The emulator pass is done
+   (see the top of this file) and the app runs correctly, but **heading semantics remain
+   unverified** — `uiautomator` doesn't expose `isHeading` and release TalkBack doesn't log
+   utterance text, so headless probing can't confirm the 2026-08-25 heading fix works. An
+   `app/src/androidTest` suite asserting `SemanticsProperties.Heading` and content descriptions
+   would make that a permanent guarantee rather than a one-off observation. The
+   `androidTestImplementation` dependencies are already declared; the source set doesn't exist yet.
+   Everything needed to run it now works. Still also worth a human listening to TalkBack on a real
+   device for five minutes — that has genuinely never happened.
 3. ~~**Set up Graphify and the repo-hygiene tools.**~~ **Done 2026-08-25** — Graphify, gitleaks,
    detekt, and ktlint are all installed/wired; Dependabot was set up by the project owner. Only
    CodeQL remains from TOOLING.md, and the repo is public now, so it's free — worth adding.
@@ -413,5 +426,5 @@ The dev machine is now fully set up, which it wasn't before. Details and gotchas
 | Android SDK | `cmdline-tools` 23.0 + `platforms;android-37.0` installed. Use the new `android` CLI, not `sdkmanager`, and set `ANDROID_HOME` first. |
 | Lint | `./gradlew detekt ktlintCheck` passes against committed baselines. |
 | Graphify | `C:\Users\reube\.local\bin\graphify.exe`; rebuild with `graphify . --code-only`. |
-| Emulator | AVD `granify_test` exists and WHPX works. **Never actually used this session** — the emulator/TalkBack pass is still outstanding. |
+| Emulator | AVD `granify_test` works. Launch headless, `adb install` the debug APK, drive it via `uiautomator dump` bounds (see AGENTS.md). Note `adb shell input tap` bypasses TalkBack touch exploration, so it can't test double-tap-to-activate. |
 | `gh` CLI | Not installed. GitHub queries were done via `Invoke-RestMethod` against `api.github.com`. |

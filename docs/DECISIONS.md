@@ -28,13 +28,20 @@ Every "hand-verified, not compiled" caveat below, going back to 2026-08-24, is t
 **discharged for compile-correctness**. The rename, the splash screen, the design-system refactor,
 Tier 1 categorization and the AI provider abstraction all compile and their tests pass.
 
+Also proven later the same session, on a real emulator (see "First emulator run since 2026-08-17"
+under Decisions): the app **runs** — no crashes or ANRs, and the rename, unread label, Tier 1
+categorization, first-contact warnings, and mark-as-read all work live.
+
 What this still does **not** prove, and where the old caveats stand unchanged:
 
-- **Nothing has been run on a device or emulator this session.** The 2026-08-17 emulator
-  verification is still the most recent real runtime evidence, and it predates every change made
-  on 2026-08-24 and after. Compiling is not running.
-- **TalkBack has still never been tested.** Still the top open gap, unchanged since 2026-08-17.
-- **No real Gmail account, no Google Cloud project, no Anthropic API call.** Unchanged.
+- **TalkBack's heading semantics are still unverified.** TalkBack was enabled and demonstrably
+  read this app, but whether `Modifier.semantics { heading() }` produces real heading
+  announcements could not be established headlessly. An instrumented Compose test asserting
+  `SemanticsProperties.Heading` is the way to close this; a human listening on a real device is
+  still worth doing.
+- **No real Gmail account, no Google Cloud project, no Anthropic API call.** Unchanged. Everything
+  verified on the emulator went through the demo inbox and hand-written fakes.
+- **The release build has never been run**, only assembled — the emulator pass used the debug APK.
 - ~~The build had to be run with `compileSdk` temporarily lowered to 36.~~ Resolved later the same
   session: `cmdline-tools` 23.0 and `platforms;android-37.0` were installed, and the committed
   `compileSdk = 37` now builds locally — 52 tests, 0 failures. See the SDK Platform 37 entry
@@ -118,6 +125,71 @@ What "verified" actually means for this snapshot, so it doesn't need to be re-de
 ---
 
 ## Decisions
+
+### First emulator run since 2026-08-17, and the first TalkBack activation ever (2026-08-25)
+Ran the freshly-built debug APK on the `granify_test` AVD (API 36, headless). This is the first
+time any of the 2026-08-24/25 work — the rename, splash screen, design-system refactor, Tier 1
+categorization, the static-accessibility fixes — has actually *executed*, as opposed to compiling.
+
+**Everything worked. No crashes, no ANRs, no app-tagged errors in logcat across the whole
+session.** Verified live, each previously only hand-reviewed:
+
+- **The namespace/applicationId split genuinely works at runtime.** The launcher resolves to
+  `com.oumatjie.app/com.granify.app.MainActivity` — exactly the deliberate split documented in the
+  rename entry, confirmed by the system rather than by reading source.
+- **The 2026-08-25 WCAG 1.4.1 fix is real**: unread mail shows a literal "Unread" text label, not
+  just a green card background.
+- **Tier 1 categorization runs**: the demo bank message is labelled "Bills" by the local keyword
+  rules.
+- **First-contact flagging works**: "New sender" on the cards, and on the message screen the full
+  calm warning ("You haven't received mail from this address before" / "Take a moment before
+  clicking links...") with its "Got it" dismissal.
+- **Mark-as-read works end-to-end**: opening a message, scrolling to "Done reading", and returning
+  clears that message's "Unread" label while leaving the other one's intact.
+- Attachment metadata renders correctly, including the password-protected case ("Monthly
+  statement.pdf", "420 KB", "This document needs a password").
+- Typography and the button hierarchy are visibly correct — Atkinson Hyperlegible throughout, a
+  filled Hero button next to an outlined Tertiary one.
+
+**One behaviour that looks like a bug and isn't**, recorded so nobody else "fixes" it: opening a
+message and pressing system Back does *not* mark it read. That's deliberate. `onBack` maps to
+`closeMessage`, and only the explicit "Done reading" button maps to `finishMessage`, which is what
+clears unread state. For an audience that may open a message accidentally, requiring an explicit
+"I'm finished" is the right call — but it is easy to misread as broken, since almost every other
+mail client marks read on open.
+
+**On TalkBack, be precise about what was and wasn't established.** TalkBack is present on this
+system image (`com.google.android.marvin.talkback`), and it was enabled, bound
+(`feedbackType[FEEDBACK_SPOKEN, FEEDBACK_HAPTIC, FEEDBACK_AUDIBLE]`), and running with
+`touchExplorationEnabled=true`. It demonstrably processed this app: each navigation gesture
+produced a matching `requestAudioFocus`/`abandonAudioFocus` cycle with
+`USAGE_ASSISTANCE_ACCESSIBILITY/CONTENT_TYPE_SPEECH`, and one captured utterance proved it was
+reading real app content — a speech item with `fragments:[{text:Oumatjie...}]`.
+
+**But this is not the same as "the TalkBack pass is done."** What could not be verified headlessly:
+- **Whether `Modifier.semantics { heading() }` actually produces heading announcements or working
+  heading navigation.** This is the specific fix the 2026-08-25 static audit added, and it remains
+  unconfirmed. `uiautomator dump` does not expose `isHeading` (its attribute set is bounds,
+  clickable, content-desc, focusable, text, … and nothing accessibility-role-related), and
+  `dumpsys accessibility` carries no node-level detail either.
+- **The actual spoken phrasing and focus order.** Release TalkBack doesn't log utterance text; the
+  one fragment above only leaked because the emulator's TTS engine hadn't initialised yet and the
+  failure path logged the item it was trying to speak.
+- **`adb shell input tap` cannot test TalkBack's double-tap-to-activate model** — injected events
+  bypass touch exploration, so a single injected tap activates controls that a real finger would
+  not. An attempt to test this produced a misleading pass and was discarded rather than reported.
+
+**The right way to close this properly is an instrumented Compose test** asserting
+`SemanticsProperties.Heading` is present on each screen's heading, plus content-description
+assertions. That's now possible for the first time (working emulator + toolchain), it would make
+the guarantee permanent instead of a one-off observation, and it's a better use of effort than
+more headless probing. `androidTestImplementation` dependencies are already declared;
+`app/src/androidTest` does not exist yet. Logged as a next step in HANDOFF.md. A human listening
+to TalkBack for five minutes on a real device is still worth doing and still hasn't happened.
+
+Housekeeping note: the emulator still had **`com.granify.app` installed from 2026-08-17**,
+alongside today's `com.oumatjie.app`. Harmless, but confusing when checking `pm list packages`
+after the rename — it's a stale pre-rename install, not a second app. Left in place.
 
 ### Dependabot's nine safe bumps merged; OkHttp 4→5 deliberately deferred (2026-08-25)
 Dependabot opened 10 PRs the day it was enabled. Nine are merged; each was verified locally

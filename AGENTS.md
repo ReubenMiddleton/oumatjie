@@ -122,6 +122,25 @@ repo is made public and machine-specific paths stop being appropriate to keep co
   flag must come *after* the verb (`avdmanager list device --sdk_root=...`), and this SDK's
   device-profile list only goes up to `pixel_xl`/`pixel_c` — use `pixel_3a` rather than guessing
   a newer profile name.
+- **Screenshots on Windows**: `adb exec-out screencap -p > file.png` **corrupts the PNG** in
+  PowerShell — the redirect adds a BOM and mangles the binary. Use
+  `adb shell screencap -p //sdcard/s.png` then `adb pull //sdcard/s.png <local>` instead.
+- **TalkBack on this AVD (learned 2026-08-25)**: TalkBack *is* present on the `google_apis` image
+  (`com.google.android.marvin.talkback`). Enable it with
+  `adb shell settings put secure enabled_accessibility_services com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService`
+  plus `accessibility_enabled 1`; confirm with `dumpsys accessibility` (look for a bound
+  `Service[label=TalkBack...]` and `touchExplorationEnabled=true`). Three limits worth knowing
+  before spending time on it:
+  - **`adb shell input tap` bypasses touch exploration.** Injected taps activate controls that a
+    real finger wouldn't, so you cannot test TalkBack's double-tap-to-activate model this way.
+  - **Release TalkBack does not log what it speaks.** You get `requestAudioFocus`/
+    `abandonAudioFocus` cycles proving it spoke, but not the words. (Utterance text leaks into
+    logcat only when TTS fails to initialise and the error path prints the item.)
+  - **`uiautomator dump` does not expose `isHeading`** — its attributes stop at bounds/clickable/
+    content-desc/focusable/text. Heading semantics can't be verified from it. Use an instrumented
+    Compose test asserting `SemanticsProperties.Heading` instead.
+  - TalkBack grabs the foreground with a notification-permission dialog the first time it starts;
+    expect your first few gestures to go to that, not your app.
 - **Driving an emulator reliably**: don't guess tap coordinates from a scaled screenshot.
   Instead: `adb shell uiautomator dump //sdcard/dump.xml && adb pull //sdcard/dump.xml <local>`
   (the doubled leading slash matters — Git Bash silently mangles a single-leading-slash device
