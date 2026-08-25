@@ -35,9 +35,10 @@ What this still does **not** prove, and where the old caveats stand unchanged:
   on 2026-08-24 and after. Compiling is not running.
 - **TalkBack has still never been tested.** Still the top open gap, unchanged since 2026-08-17.
 - **No real Gmail account, no Google Cloud project, no Anthropic API call.** Unchanged.
-- The build had to be run with `compileSdk` temporarily lowered to 36 (see the SDK Platform 37
-  entry under Decisions) — so the *committed* `compileSdk = 37` configuration has been verified by
-  CI, but not locally.
+- ~~The build had to be run with `compileSdk` temporarily lowered to 36.~~ Resolved later the same
+  session: `cmdline-tools` 23.0 and `platforms;android-37.0` were installed, and the committed
+  `compileSdk = 37` now builds locally — 52 tests, 0 failures. See the SDK Platform 37 entry
+  under Decisions.
 - Several test files emit `ExperimentalCoroutinesApi` opt-in warnings. Not errors today; will be
   eventually.
 
@@ -166,9 +167,29 @@ available and unread: **CI has been green this whole time**, building `compileSd
 configuration a local doc called impossible should have been treated as a contradiction to
 resolve rather than a coincidence.
 
-Left `compileSdk = 37` committed and unchanged. Installing cmdline-tools is logged in
-NEEDS_YOUR_INPUT.md rather than done unprompted, because it means downloading and unpacking a
-toolchain onto the owner's machine.
+**Fixed the same day, once the project owner approved the download.** `cmdline-tools` 23.0
+installed to `C:\Users\reube\.bubblewrap\android_sdk\cmdline-tools\latest` (archive
+`commandlinetools-win-16111833_latest.zip`, SHA-1 verified against Google's own manifest before
+extracting), then `platforms;android-37.0`. Result: **`./gradlew testDebugUnitTest assembleDebug`
+against the committed `compileSdk = 37` is BUILD SUCCESSFUL, 52 tests, 0 failures.** The
+edit-and-revert workaround is retired; local builds now match the committed configuration and CI.
+
+Answering the open question above: **`platforms;android-37.0` alone satisfies
+`android-37.0-ext19`.** No separate `-ext` package for 37 exists, and none is needed.
+
+Three things worth knowing about the new toolchain, all learned the hard way:
+- **It deprecates `sdkmanager` in favour of an `android` CLI** — `cmdline-tools\latest\bin\
+  android.exe` (note: `.exe`, there is no `android.bat`). Use `android sdk list` /
+  `android sdk install`.
+- **`android sdk list` reports `(no installed packages)` unless `ANDROID_HOME` is set**, even
+  with a correct `local.properties`. Export it before using the CLI.
+- **`android.exe` exits `-1073740791` (0xC0000409, stack buffer overrun) *after* printing correct
+  output.** A nonzero exit from it doesn't mean the command failed — read the output.
+
+Also worth recording for anyone scripting this on Windows: `Expand-Archive` fails on this archive
+(it rolls back and leaves nothing), and .NET's `ZipFile::ExtractToDirectory` fails too if the
+destination path is long, because the archive contains a ~150-character guava jar filename that
+blows the 260-char `MAX_PATH` limit. Extracting directly into the short SDK path works.
 
 ### First real local build: the whole app compiles, all 52 tests pass, release/R8 works (2026-08-25)
 The first time this project has ever been compiled from a session with a real toolchain — the

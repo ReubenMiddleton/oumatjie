@@ -69,13 +69,14 @@ DECISIONS.md's new "Verification summary (2026-08-25, first local session with a
 
 Also this session:
 
-- **A long-standing documented blocker turned out to be wrong.** "Android SDK Platform 37 isn't
-  published yet" — repeated since 2026-08-17 in AGENTS.md, `ci.yml`, and DECISIONS.md — is false.
-  Google publishes `platforms;android-37.0`/`37.1`; the real problem is that this machine has the
-  *deprecated* `sdkmanager`, which can't see modern packages. CI had been quietly proving this all
-  along by building `compileSdk = 37` green. Corrected in all three places. Local builds still
-  need `compileSdk` temporarily set to 36 until `cmdline-tools` is installed
-  (NEEDS_YOUR_INPUT.md).
+- **A long-standing documented blocker turned out to be wrong, and is now fixed.** "Android SDK
+  Platform 37 isn't published yet" — repeated since 2026-08-17 in AGENTS.md, `ci.yml`, and
+  DECISIONS.md — was false. Google publishes `platforms;android-37.0`/`37.1`; the real problem was
+  that this machine had only the *deprecated* `sdkmanager`, which can't see modern packages. CI had
+  been quietly proving this all along by building `compileSdk = 37` green. **`cmdline-tools` 23.0
+  and `platforms;android-37.0` are now installed**, and the committed `compileSdk = 37` builds
+  locally — 52 tests, 0 failures. No workaround needed any more. Note the new toolchain replaces
+  `sdkmanager` with an `android` CLI that has two confusing quirks — see AGENTS.md before using it.
 - **Graphify installed** (`C:\Users\reube\.local\bin\graphify.exe`), from the verified official
   source — provenance cross-checked across PyPI/GitHub before installing, and TOOLING.md's
   unverifiable "105K+ stars" claim now independently confirmed at **110,290** via GitHub's API.
@@ -94,12 +95,13 @@ Also this session:
 - **Dependabot is live and has opened 10 PRs** — you added `dependabot.yml` directly on GitHub.
   None reviewed. Includes majors (Kotlin 2.4, OkHttp 5) that shouldn't be batch-merged; see
   NEEDS_YOUR_INPUT.md.
-- **The public repo has no license.** The `LICENSE` file drafted last session was never committed,
-  so GitHub reports `"license": null` on a public repo — meaning nobody may legally reuse the
-  code. Logged in NEEDS_YOUR_INPUT.md; not committed here, per the never-commit-unasked rule.
+- **The licence gap is closed.** The `LICENSE` file drafted last session had never been committed,
+  so the public repo had `"license": null` — publicly readable but legally unusable by anyone. The
+  project owner confirmed Apache 2.0 and it is now committed and pushed; GitHub reports
+  `"license": "Apache-2.0"`.
 
-**Nothing in this session was committed.** The working tree carries all of the above plus the
-previous session's uncommitted doc changes — see "Uncommitted work" at the end of this file.
+**This session's work is committed and pushed** (commit `c94b34e`, plus a follow-up for the SDK
+fix). The working tree is clean.
 
 ## Earlier state, as of 2026-08-25 (four sessions)
 
@@ -281,18 +283,15 @@ committed" gap that every earlier version of this file flagged as top priority.
    drive it reliably — don't guess tap coordinates from screenshots). Two things to verify beyond
    accessibility, both of which compiled clean but have never *run*: the splash screen, and the
    2026-08-25 static-audit fixes (heading semantics and the "Unread" text label) actually being
-   announced by TalkBack. Note you'll need either `compileSdk` temporarily at 36, or
-   `cmdline-tools` installed first (NEEDS_YOUR_INPUT.md).
+   announced by TalkBack. The toolchain is ready — `compileSdk = 37` builds locally as committed.
 3. ~~**Set up Graphify and the repo-hygiene tools.**~~ **Done 2026-08-25** — Graphify, gitleaks,
    detekt, and ktlint are all installed/wired; Dependabot was set up by the project owner. Only
    CodeQL remains from TOOLING.md, and the repo is public now, so it's free — worth adding.
    TOOLING.md itself now contains two claims this session proved wrong (its `pip install`
    instruction, and "no API key needed"); read the corrections in DECISIONS.md alongside it.
-4. **Deal with the licence gap, then the 10 Dependabot PRs.** Both are in NEEDS_YOUR_INPUT.md.
-   The licence one is genuinely urgent-ish: the repo is public with no licence at all, so the
-   drafted Apache 2.0 file needs confirming and committing. The Dependabot PRs now *can* be
-   tested locally rather than merged on faith — do the 6 Actions bumps first, Kotlin 2.4 and
-   OkHttp 5 last and carefully.
+4. **Work through the 10 Dependabot PRs** (NEEDS_YOUR_INPUT.md). They now *can* be tested locally
+   rather than merged on faith — do the 6 Actions bumps first, then Compose BOM, then Kotlin 2.4,
+   with OkHttp 4→5 last and most carefully, since it touches the real Gmail networking path.
 5. **Look at the three swallowed exceptions detekt found** — `AnthropicAiProvider.kt:31` and
    `:43`, `GmailMailRepository.kt:42`. Deliberately not "fixed" this session because changing
    error handling is a behavior change, not a lint fix, and these sit in auth/network paths where
@@ -365,9 +364,8 @@ committed" gap that every earlier version of this file flagged as top priority.
   must not assume is that it *runs correctly* — compiling is not running, and nothing has been on
   a device or emulator since 2026-08-17, which predates three sessions of changes. Treat runtime
   behavior, not compilation, as the open question now.
-- Do not assume `compileSdk = 37` builds on the original dev machine — it doesn't, and that is a
-  local `sdkmanager` limitation, not a code defect. Equally, do not assume Platform 37 is
-  unpublished; that long-standing note was wrong. See AGENTS.md.
+- Do not assume Platform 37 is unpublished or that `compileSdk = 37` can't build locally — both
+  were true-sounding claims in this repo for weeks and both were wrong. It builds. See AGENTS.md.
 - Do not assume `com.granify.app` and `com.oumatjie.app` are a typo or inconsistency if you see
   both — they're deliberately different (`namespace` vs. `applicationId`). See DECISIONS.md's
   rename entry before "fixing" this.
@@ -384,8 +382,8 @@ committed" gap that every earlier version of this file flagged as top priority.
   language in this project (and muscle memory from earlier sessions) said otherwise; that's now
   out of date. Note it is **public**, not private — some surrounding text still says private, and
   that is stale. It also currently has **no licence file committed**, despite being public.
-- Do not assume the working tree is clean or that this session's work is committed — it isn't.
-  See "Uncommitted work" below before starting anything.
+- Do not assume the repo has no licence — it now has Apache 2.0, committed and detected by GitHub.
+  Older text saying "there's currently no license at all" is stale.
 - Do not assume every "hand-verified, not compiled" claim in this file or DECISIONS.md is
   probably fine — the very first real CI run found a genuine bug (see above). Treat unverified
   claims as genuinely unverified, not as low-risk by default.
@@ -399,29 +397,16 @@ committed" gap that every earlier version of this file flagged as top priority.
   code-verified first draft, not a legally reviewed document. See its own drafting note.
 - This machine's local tool paths (SDK/JDK locations, emulator name, known gotchas) are recorded in `AGENTS.md`, not repeated here — check there before rediscovering them from scratch. If working from a different machine, treat that section as a template to redo, not as fact.
 
-## Uncommitted work (as of the end of the 2026-08-25 local session)
+## Local environment: what a new session can rely on (2026-08-25)
 
-Nothing below has been committed or pushed, per this project's standing "never commit without
-being explicitly asked" rule. If you're picking this up cold, `git status` should show:
+The dev machine is now fully set up, which it wasn't before. Details and gotchas are in
+`AGENTS.md`; the short version:
 
-| File | State | What it is |
-|---|---|---|
-| `LICENSE` | untracked | Apache 2.0, drafted the previous session. **Never committed — so the public repo has no licence.** Awaiting confirmation (NEEDS_YOUR_INPUT.md). |
-| `.editorconfig` | untracked | New. Formatting + the `ktlint_code_style` decision. |
-| `config/` | untracked | New. detekt config + both lint baselines. |
-| `.github/workflows/gitleaks.yml` | untracked | New. Secret-scanning workflow. |
-| `.github/workflows/ci.yml` | modified | Added the detekt/ktlint step; corrected the stale Platform 37 header note. |
-| `build.gradle.kts`, `app/build.gradle.kts` | modified | detekt + ktlint plugins and config. `compileSdk` is back at the committed `37`. |
-| `.gitignore` | modified | Added `graphify-out/` and `.kotlin/`. |
-| `HANDOFF.md`, `AGENTS.md`, `docs/DECISIONS.md`, `docs/NEEDS_YOUR_INPUT.md` | modified | This session's documentation. DECISIONS.md and NEEDS_YOUR_INPUT.md also still carry the *previous* session's uncommitted doc edits. |
-
-Two things worth knowing before committing any of it:
-
-1. **The doc changes span two sessions.** DECISIONS.md, NEEDS_YOUR_INPUT.md and HANDOFF.md
-   already had uncommitted edits from the previous session when this one started; those are mixed
-   in with this session's. If you want clean history, that's worth separating deliberately rather
-   than in one blanket `git add -A`.
-2. **Committing the build-file changes will immediately exercise the new CI step**, since
-   `ci.yml` now runs `detekt ktlintCheck` before the tests. Both pass locally against the
-   committed baselines, so it should be green — but the baselines and `.editorconfig` must go in
-   the *same* commit as the plugin changes, or CI will fail on 542 ktlint violations.
+| Thing | State |
+|---|---|
+| Build | `./gradlew testDebugUnitTest assembleDebug` works against the committed `compileSdk = 37`. Pass `-Dorg.gradle.java.home=...` — the default `JAVA_HOME` is JRE-only. |
+| Android SDK | `cmdline-tools` 23.0 + `platforms;android-37.0` installed. Use the new `android` CLI, not `sdkmanager`, and set `ANDROID_HOME` first. |
+| Lint | `./gradlew detekt ktlintCheck` passes against committed baselines. |
+| Graphify | `C:\Users\reube\.local\bin\graphify.exe`; rebuild with `graphify . --code-only`. |
+| Emulator | AVD `granify_test` exists and WHPX works. **Never actually used this session** — the emulator/TalkBack pass is still outstanding. |
+| `gh` CLI | Not installed. GitHub queries were done via `Invoke-RestMethod` against `api.github.com`. |

@@ -56,26 +56,33 @@ repo is made public and machine-specific paths stop being appropriate to keep co
   build-tools 34/35/36, platform 36, `sdkmanager` at `tools\bin\sdkmanager.bat`). Point a
   gitignored `local.properties` at it with `sdk.dir=C:\\Users\\reube\\.bubblewrap\\android_sdk`.
   `sdkmanager` can fetch missing platforms/build-tools/extensions on demand.
-- **Corrected 2026-08-25 — the old "Platform 37 isn't published yet" note was wrong.** Google
-  publishes `platforms;android-37.0` and `android-37.1` (confirmed against
-  `https://dl.google.com/android/repository/repository2-3.xml`). The real problem is local: this
-  SDK only has the **deprecated** `tools/bin/sdkmanager`, which speaks an old repository schema
-  and cannot see modern packages — so `sdkmanager --list` reports them as missing and
-  `--install "platforms;android-37.0"` fails with `Failed to find package`. **Do not trust that
-  tool's `--list` output as evidence about what Google publishes.** It also requires an explicit
-  `--sdk_root=C:\Users\reube\.bubblewrap\android_sdk`, or it fails with a bare
-  `IllegalArgumentException: Could not create settings`.
-  - Real local failure with the committed `compileSdk = 37`:
-    `Failed to find target with hash string 'android-37.0-ext19'`. Note it wants the
-    **`-ext19`** variant (from `compileSdkExtension = 19`), which Google's manifest does not
-    appear to list for 37 — confirm that before assuming installing `android-37.0` fixes it.
-  - **Until modern `cmdline-tools` is installed** (logged in `docs/NEEDS_YOUR_INPUT.md`), build
-    locally with `compileSdk` temporarily lowered to 36 against the installed `android-36-ext19`,
-    and revert before committing. This works — the full build and all 52 tests pass that way.
-  - CI is unaffected and builds `compileSdk = 37` green, because `android-actions/setup-android`
-    uses current cmdline-tools. A green CI run says nothing about this machine, and vice versa.
-  - `detekt`/`ktlintCheck` run fine with `compileSdk = 37` locally — AGP only fails at
-    task-dependency resolution for compile tasks. Don't read a green lint run as an SDK check.
+- **RESOLVED 2026-08-25 — `compileSdk = 37` now builds locally. No workaround needed.** For the
+  record, because the old note was wrong in a way worth not repeating: Google *does* publish
+  `platforms;android-37.0`/`37.1`, and always did during the period this repo called it
+  unpublished. The real blocker was that this SDK only had the **deprecated**
+  `tools/bin/sdkmanager`, which speaks an old repository schema, cannot see modern packages, and
+  reported `Failed to find package` for something that existed. **Never treat that legacy tool's
+  `--list` output as evidence about what Google publishes.**
+  - **Modern `cmdline-tools` 23.0 is now installed** at
+    `C:\Users\reube\.bubblewrap\android_sdk\cmdline-tools\latest`, and
+    `platforms;android-37.0` with it. Verified: `./gradlew testDebugUnitTest assembleDebug`
+    against the committed `compileSdk = 37` is **BUILD SUCCESSFUL, 52 tests, 0 failures.**
+  - `platforms;android-37.0` alone satisfies the `android-37.0-ext19` target AGP asks for (from
+    `compileSdkExtension = 19`). No separate `-ext19` package for 37 exists or is needed.
+  - **The new cmdline-tools deprecates `sdkmanager` in favour of an `android` CLI**
+    (`cmdline-tools\latest\bin\android.exe`; there is no `android.bat`). Use
+    `android sdk list` / `android sdk install <pkg>`. `sdkmanager.bat` still exists but just
+    delegates and prints a deprecation warning.
+  - **Two gotchas with the new `android` CLI**: it reports `(no installed packages)` unless
+    `ANDROID_HOME` is set, even though `local.properties` is correct — always export
+    `ANDROID_HOME=C:\Users\reube\.bubblewrap\android_sdk` before using it. And it exits with
+    `-1073740791` (0xC0000409) *after* printing correct output, so a nonzero exit code from it
+    does not necessarily mean the command failed. Check the output, not just the exit code.
+  - The legacy `tools\bin\sdkmanager.bat` is still on disk and still broken. Ignore it; if you do
+    use it, it needs an explicit `--sdk_root=...` or it dies with a bare
+    `IllegalArgumentException: Could not create settings`.
+  - `detekt`/`ktlintCheck` run fine regardless of SDK state — AGP only fails at task-dependency
+    resolution for compile tasks. Don't read a green lint run as an SDK check.
 
 - **Building on this machine**: the default `JAVA_HOME` is JRE-only (no `javac`), so always pass
   the JDK explicitly. The full working invocation:
