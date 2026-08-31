@@ -1,5 +1,6 @@
 package com.granify.app.ai
 
+import com.granify.app.util.logSwallowed
 import kotlinx.coroutines.CancellationException
 
 /**
@@ -29,6 +30,9 @@ class AnthropicAiProvider(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
+        // Deliberately degrades to a calm message rather than an error screen. The cause is kept
+        // in debug builds only so a failing key/network/quota is diagnosable — see DebugLog.
+        logSwallowed(LOG_TAG, "scam check request failed", e)
         ScamAssessment.CheckFailed("We could not check this message right now. Please try again later.")
     }
 
@@ -41,6 +45,7 @@ class AnthropicAiProvider(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
+        logSwallowed(LOG_TAG, "summarize request failed", e)
         "We could not summarize this message right now. Please try again later."
     }
 
@@ -77,6 +82,8 @@ class AnthropicAiProvider(
     }
 
     private companion object {
+        const val LOG_TAG = "AnthropicAiProvider"
+
         // An alias, not a dated snapshot, so this keeps resolving to a current Haiku 4.5
         // build as Anthropic ages out old snapshots, without needing an app update — see
         // docs/DECISIONS.md.

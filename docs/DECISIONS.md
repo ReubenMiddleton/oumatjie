@@ -126,6 +126,76 @@ What "verified" actually means for this snapshot, so it doesn't need to be re-de
 
 ## Decisions
 
+### Heading semantics are now verified, not assumed — instrumented tests added, and one real gap found (2026-08-25)
+The open question left by the emulator session ("does `Modifier.semantics { heading() }` actually
+work?") is **answered: yes.** `app/src/androidTest/.../AccessibilitySemanticsTest.kt` asserts it
+directly against `SemanticsProperties.Heading`, which is exactly the key that modifier sets, and
+**7/7 tests pass on a real emulator** — confirmed stable across two consecutive runs on a
+non-fresh device. This is the first mechanically-enforced accessibility guarantee this project
+has ever had.
+
+**Writing the tests immediately found a real gap that both the static audit and the emulator pass
+missed.** On `SignInScreen`, the app title "Oumatjie" had **no heading semantics** — while "Just
+exploring?", a far less important sub-heading further down the same screen, did. Every other
+screen's title ("Your mail", "Settings") was correctly marked. The practical effect: a TalkBack
+user navigating by heading on the very first screen of the app skipped the page title entirely and
+landed on "Just exploring?". Fixed, and now covered by a named regression test. Worth noting *how*
+it was found — not by reading the source again (two prior passes had read it), but by writing an
+assertion that forced the question "which nodes are headings?" to have an explicit answer.
+
+The suite deliberately also asserts the **negative** case (`signInScreen_bodyTextIsNotMarkedAsAHeading`).
+Marking everything a heading is as useless as marking nothing, because "next heading" stops being
+a shortcut — so the tests guard against over-tagging too.
+
+Tests run against the real `MainActivity` and the real demo inbox rather than composables in
+isolation. Partly forced (`InboxScreen`/`MessageScreen` are file-private), but it is also the
+stronger guarantee: it asserts what a user actually reaches, not what a composable does when
+invoked with hand-made arguments.
+
+**One assertion was written, run, and then deliberately removed** — first-contact "New sender"
+labels. It failed on the first run, and the cause was a test design error, not an app bug:
+`DataStoreKnownSendersRepository` persists every sender it has shown to disk, so `isFirstContact`
+returns false forever afterwards. The label is present on a freshly-installed app and absent on
+every subsequent run — unstable by construction, and it would have been an intermittent CI failure
+blamed on the emulator. Testing it properly needs app data cleared first, or an injected fake
+repository; that is a different kind of test and doesn't belong in a semantics suite. The reasoning
+is recorded in the test file itself so nobody re-adds it. ("Unread" is safe by contrast:
+`MockMailRepository` holds that state in memory only.)
+
+**Wired into CI** as `.github/workflows/instrumented-tests.yml`, deliberately separate from
+`ci.yml` — booting an emulator takes minutes and `ci.yml`'s value is fast feedback. A test that
+isn't run guarantees nothing, so this needed enforcing somewhere rather than being merely runnable.
+
+### Swallowed exceptions: cause now logged in debug builds; control flow deliberately unchanged (2026-08-25)
+The three `SwallowedException` findings detekt reported (`AnthropicAiProvider.kt` ×2,
+`GmailMailRepository.kt`) were reviewed rather than mechanically silenced. **All three are correct
+and none should rethrow** — each turns a failure into a calm fallback, which is the documented
+product behaviour. What was wrong was that they discarded the cause entirely, leaving three silent
+failure paths in code that has never run against a live service. The worst of them:
+`fetchMessageOrNull` drops an unfetchable message on purpose, but if *every* fetch fails (expired
+token, wrong scope) that produces an empty inbox with no error shown at all — indistinguishable
+from "you have no mail", with nothing anywhere to say otherwise.
+
+Added `util/DebugLog.kt`, deliberately constrained two ways: **debug builds only**
+(`BuildConfig.DEBUG`, so release carries no logging), and **no message content ever** — callers
+pass a short static description, never subjects, addresses, or bodies. This respects
+`docs/PRODUCT_PRINCIPLES.md`'s privacy rules (logcat is on-device, so the failure trail stays where
+email processing already does) and the existing note in `AnthropicAiProvider` that the API key is
+never logged. Control flow is byte-for-byte unchanged; only diagnosability improves.
+
+**This broke a unit test, which is the useful part of the story.** `GmailMailRepositoryTest`'s
+`loadInbox_dropsAMessageThatFailsToFetchInsteadOfFailingTheWholeInbox` exercises exactly that catch
+path, and JVM unit tests run against a stubbed `android.jar` where `android.util.Log.w` throws
+`Method w in android.util.Log not mocked`. Fixed with `testOptions { unitTests.isReturnDefaultValues = true }`
+in `app/build.gradle.kts`. That is the right semantics rather than a workaround: logging must never
+influence control flow, so a no-op `Log` under unit test is exactly what's wanted. Worth knowing
+before adding any *other* Android-framework call to a code path unit tests reach — the stub throws
+by default, and this setting now silently returns defaults instead.
+
+Note for future lint runs: ktlint's baseline is line-number-based, so editing these files
+invalidated eight baseline entries that were merely shifted. Regenerated;
+the entry count is unchanged at 159, and neither the new test file nor `DebugLog.kt` appears in it.
+
 ### First emulator run since 2026-08-17, and the first TalkBack activation ever (2026-08-25)
 Ran the freshly-built debug APK on the `granify_test` AVD (API 36, headless). This is the first
 time any of the 2026-08-24/25 work — the rename, splash screen, design-system refactor, Tier 1

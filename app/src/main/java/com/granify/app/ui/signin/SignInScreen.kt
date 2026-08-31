@@ -45,6 +45,11 @@ fun SignInScreen(
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
+                // This screen's title. Every other screen's title ("Your mail", "Settings") is a
+                // heading; this one was missed by the 2026-08-25 static audit, which meant a
+                // TalkBack user navigating by heading skipped the page title entirely and landed
+                // on "Just exploring?" below. Covered by AccessibilitySemanticsTest.
+                modifier = Modifier.semantics { heading() },
             )
             Spacer(Modifier.height(12.dp))
             Text(

@@ -122,6 +122,17 @@ repo is made public and machine-specific paths stop being appropriate to keep co
   flag must come *after* the verb (`avdmanager list device --sdk_root=...`), and this SDK's
   device-profile list only goes up to `pixel_xl`/`pixel_c` — use `pixel_3a` rather than guessing
   a newer profile name.
+- **Running the instrumented tests** (added 2026-08-25): boot the AVD headless, then
+  `./gradlew connectedDebugAndroidTest -Dorg.gradle.java.home=...`. Two things that will otherwise
+  cost time:
+  - **Set `ANDROID_HOME`** before invoking anything SDK-related, and remember to
+    `adb emu kill` + `adb kill-server` afterwards so the emulator isn't left burning CPU.
+  - **Beware persisted app state between runs.** The emulator keeps DataStore contents, so any
+    test asserting first-contact ("New sender") behaviour passes once on a fresh install and fails
+    forever after — `DataStoreKnownSendersRepository` writes seen senders to disk permanently. One
+    such assertion was written, failed exactly this way, and was removed;
+    `AccessibilitySemanticsTest`'s header records why. Clear with `adb shell pm clear com.oumatjie.app`
+    if you need a genuinely fresh state.
 - **Screenshots on Windows**: `adb exec-out screencap -p > file.png` **corrupts the PNG** in
   PowerShell — the redirect adds a BOM and mangles the binary. Use
   `adb shell screencap -p //sdcard/s.png` then `adb pull //sdcard/s.png <local>` instead.

@@ -78,6 +78,19 @@ android {
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+
+    testOptions {
+        unitTests {
+            // JVM unit tests run against a stubbed android.jar whose methods throw
+            // "Method ... not mocked" by default. util/DebugLog.kt calls android.util.Log on the
+            // deliberately-swallowed failure paths, and GmailMailRepositoryTest exercises exactly
+            // one of those (loadInbox_dropsAMessageThatFailsToFetchInsteadOfFailingTheWholeInbox),
+            // so without this the logging would break a test that is asserting real behaviour.
+            // Returning defaults is correct here: logging must never influence control flow, so a
+            // no-op Log in unit tests is exactly the desired semantics.
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 dependencies {

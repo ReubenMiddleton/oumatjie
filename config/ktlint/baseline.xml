@@ -7,13 +7,13 @@
         <error line="21" column="1" source="standard:no-consecutive-blank-lines" />
     </file>
     <file name="src/main/java/com/granify/app/ai/AnthropicAiProvider.kt">
-        <error line="15" column="5" source="standard:class-signature" />
         <error line="16" column="5" source="standard:class-signature" />
-        <error line="16" column="32" source="standard:class-signature" />
-        <error line="19" column="9" source="standard:function-signature" />
+        <error line="17" column="5" source="standard:class-signature" />
+        <error line="17" column="32" source="standard:class-signature" />
         <error line="20" column="9" source="standard:function-signature" />
         <error line="21" column="9" source="standard:function-signature" />
-        <error line="21" column="26" source="standard:function-signature" />
+        <error line="22" column="9" source="standard:function-signature" />
+        <error line="22" column="26" source="standard:function-signature" />
     </file>
     <file name="src/main/java/com/granify/app/ai/AnthropicApiModels.kt">
         <error line="15" column="5" source="standard:class-signature" />
@@ -107,11 +107,11 @@
         <error line="50" column="32" source="standard:function-signature" />
     </file>
     <file name="src/main/java/com/granify/app/data/gmail/GmailMailRepository.kt">
-        <error line="21" column="5" source="standard:class-signature" />
         <error line="22" column="5" source="standard:class-signature" />
-        <error line="22" column="42" source="standard:class-signature" />
-        <error line="70" column="65" source="standard:function-signature" />
-        <error line="73" column="46" source="standard:function-expression-body" />
+        <error line="23" column="5" source="standard:class-signature" />
+        <error line="23" column="42" source="standard:class-signature" />
+        <error line="76" column="65" source="standard:function-signature" />
+        <error line="79" column="46" source="standard:function-expression-body" />
     </file>
     <file name="src/main/java/com/granify/app/data/gmail/MimePayloadParsing.kt">
         <error line="115" column="21" source="standard:argument-list-wrapping" />

@@ -71,11 +71,24 @@ live: the namespace/applicationId split resolves correctly at runtime
 categorization labels the bank message "Bills", first-contact warnings appear, and mark-as-read
 works end-to-end via "Done reading". Atkinson Hyperlegible and the button hierarchy look right.
 
-**TalkBack was enabled for the first time ever and demonstrably reads the app** — but the pass is
-*not* complete: whether the 2026-08-25 heading-semantics fix actually works could not be verified
-headlessly. Read DECISIONS.md's "First emulator run since 2026-08-17" for exactly what was and
-wasn't established, and don't upgrade it to "TalkBack verified" in a future summary.
-Full detail also in DECISIONS.md's "Verification summary (2026-08-25, first local session)".
+**TalkBack was enabled for the first time ever and demonstrably reads the app.** Whether heading
+semantics actually worked couldn't be established headlessly at the time — that question is now
+**answered by instrumented tests** (below), not by observation.
+
+**Accessibility semantics are now mechanically verified.**
+`app/src/androidTest/.../AccessibilitySemanticsTest.kt` asserts `SemanticsProperties.Heading`
+directly — **7/7 passing**, stable across consecutive runs, and enforced by a new
+`instrumented-tests.yml` CI workflow. Writing it **found a real gap two prior review passes
+missed**: the sign-in screen's "Oumatjie" title had no heading semantics, so a TalkBack user
+navigating by heading skipped the app's very first page title. Fixed and regression-tested.
+The suite also asserts the negative case, so over-tagging fails too.
+
+**What this does not cover, and shouldn't be rounded up:** the tests prove the semantics are
+*present*, not that the experience is *good*. **Nobody has listened to TalkBack.** That remains
+genuinely undone. Full detail in DECISIONS.md's "Heading semantics are now verified, not assumed".
+
+**The three swallowed exceptions are resolved** — all judged correct (none rethrow); the cause is
+now logged in debug builds only, with no message content, via `util/DebugLog.kt`.
 
 Also this session:
 
@@ -292,15 +305,12 @@ committed" gap that every earlier version of this file flagged as top priority.
    2026-08-25** — debug build, release build, all 52 tests, and a full emulator run. The app works:
    no crashes, and the rename, unread label, categorization, first-contact warnings and
    mark-as-read were all confirmed live. See the top of this file.
-2. **Write instrumented Compose tests for the accessibility semantics.** The emulator pass is done
-   (see the top of this file) and the app runs correctly, but **heading semantics remain
-   unverified** — `uiautomator` doesn't expose `isHeading` and release TalkBack doesn't log
-   utterance text, so headless probing can't confirm the 2026-08-25 heading fix works. An
-   `app/src/androidTest` suite asserting `SemanticsProperties.Heading` and content descriptions
-   would make that a permanent guarantee rather than a one-off observation. The
-   `androidTestImplementation` dependencies are already declared; the source set doesn't exist yet.
-   Everything needed to run it now works. Still also worth a human listening to TalkBack on a real
-   device for five minutes — that has genuinely never happened.
+2. ~~**Write instrumented Compose tests for the accessibility semantics.**~~ **Done 2026-08-25** —
+   `AccessibilitySemanticsTest`, 7/7 passing, wired into CI. Heading semantics are now *verified*,
+   and writing the tests found a real gap (the sign-in screen's title wasn't a heading). What
+   remains from this item: **a human listening to TalkBack on a real device for five minutes.**
+   That has genuinely never happened, and no automated assertion substitutes for it — the tests
+   prove the semantics are *present*, not that the resulting experience is *good*.
 3. ~~**Set up Graphify and the repo-hygiene tools.**~~ **Done 2026-08-25** — Graphify, gitleaks,
    detekt, and ktlint are all installed/wired; Dependabot was set up by the project owner. Only
    CodeQL remains from TOOLING.md, and the repo is public now, so it's free — worth adding.
@@ -310,11 +320,10 @@ committed" gap that every earlier version of this file flagged as top priority.
    It builds clean; the argument for waiting is that it shouldn't land in the same first live
    Gmail test as this project's own never-executed networking code. Naturally sequenced *after*
    step 3 (real Gmail access), not before.
-5. **Look at the three swallowed exceptions detekt found** — `AnthropicAiProvider.kt:31` and
-   `:43`, `GmailMailRepository.kt:42`. Deliberately not "fixed" this session because changing
-   error handling is a behavior change, not a lint fix, and these sit in auth/network paths where
-   a silent failure is exactly what hides a real bug. Worth a decision either way, then either
-   fix them or annotate why they're correct.
+5. ~~**Look at the three swallowed exceptions detekt found.**~~ **Done 2026-08-25** — reviewed and
+   all three judged correct; none rethrow. What was wrong was that they discarded the cause, so
+   `util/DebugLog.kt` now records it in debug builds only, with no message content. Control flow
+   unchanged. See DECISIONS.md.
 6. **Rename the real Windows-machine artifacts that this session's text-only rename couldn't
    reach**: the `granify_test` AVD (cosmetic only — see AGENTS.md) and, if desired, a real IDE
    "Rename package" refactor of `com.granify.app` → `com.oumatjie.app` now that Android Studio and
@@ -366,6 +375,9 @@ committed" gap that every earlier version of this file flagged as top priority.
 | `.github/workflows/claude.yml` | Responds to `@claude` mentions in issues/PRs |
 | `.github/workflows/claude-ci-watch.yml` | Daily CI-health check; opens a fix PR if something's broken, never auto-merges |
 | `.github/workflows/gitleaks.yml` | Secret scanning over full git history on every push/PR (added 2026-08-25) |
+| `.github/workflows/instrumented-tests.yml` | Runs `app/src/androidTest` on an emulator; separate from `ci.yml` so fast feedback stays fast |
+| `app/src/androidTest/.../AccessibilitySemanticsTest.kt` | Asserts heading semantics and the "Unread" text label. The project's only mechanically-enforced accessibility guarantee — read its header before changing screen headings |
+| `app/src/main/.../util/DebugLog.kt` | Debug-build-only logging for deliberately-swallowed failures. Never logs message content |
 | `.github/dependabot.yml` | Weekly Gradle + GitHub Actions dependency PRs (added by the project owner, 2026-08-25) |
 | `.editorconfig` | Shared formatting, and the `ktlint_code_style` decision — see its own header comment |
 | `config/detekt/detekt.yml` | detekt rule deviations, each with a documented reason |

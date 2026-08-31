@@ -7,6 +7,7 @@ import com.granify.app.data.MailAuthException
 import com.granify.app.data.MailMessage
 import com.granify.app.data.MailRepository
 import com.granify.app.data.MailSummary
+import com.granify.app.util.logSwallowed
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -40,6 +41,11 @@ class GmailMailRepository(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
+        // Dropping the message is deliberate (see the comment above). Keeping the cause in debug
+        // builds matters here more than anywhere else: if every fetch fails — an expired token,
+        // a wrong scope — this returns an empty inbox with no error shown at all, which is
+        // indistinguishable from "you have no mail". See DebugLog.
+        logSwallowed(LOG_TAG, "could not fetch one message; dropping it from the inbox", e)
         null
     }
 
@@ -80,6 +86,8 @@ class GmailMailRepository(
     }
 
     companion object {
+        private const val LOG_TAG = "GmailMailRepository"
+
         // Both scopes are requested together at sign-in (docs/SETUP.md step 7: gmail.modify
         // is added once Done/Trash behavior exists, which it now does), so this should
         // resolve silently here.
