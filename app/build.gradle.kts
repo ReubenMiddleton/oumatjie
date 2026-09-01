@@ -121,7 +121,7 @@ dependencies {
     // Google's embeddable viewer supports protected PDFs (it shows its own password
     // dialog). It is still an alpha library, so Oumatjie keeps it behind a replaceable
     // document-viewer boundary (pdf/PdfViewerActivity).
-    implementation("androidx.pdf:pdf-viewer-fragment:1.0.0-alpha19")
+    implementation("androidx.pdf:pdf-viewer-fragment:1.0.0-beta01")
 
     // Gmail REST API access. OkHttp is pinned to the version retrofit:3.0.0 itself
     // depends on, rather than a newer one, so the pairing is one that's actually tested.
