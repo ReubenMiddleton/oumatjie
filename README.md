@@ -108,7 +108,6 @@ See [docs/SETUP.md](docs/SETUP.md) for the full workstation and Google Cloud che
 - [docs/PLAY_STORE_READINESS.md](docs/PLAY_STORE_READINESS.md) — a concrete checklist for what's
   already satisfied, what's account/paperwork-only, and what's still a real engineering gap
   before this can go on the Play Store.
-- [AGENTS.md](AGENTS.md) — for whoever is doing hands-on work here: machine/tooling setup,
-  standing working preferences, and the session-start/session-end documentation ritual.
+- [AGENTS.md](AGENTS.md) — the few standing rules for coding agents working here.
 - [HANDOFF.md](HANDOFF.md) — start here after a break from this project. Written for a new
   chat session (human or Claude) to get oriented in one read.

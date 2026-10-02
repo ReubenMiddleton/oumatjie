@@ -23,6 +23,16 @@ Open the repository in Android Studio, allow Gradle sync to finish, then run:
 
 The first build downloads dependencies from Google's Maven repository and Maven Central.
 
+### Emulator and accessibility testing notes
+
+Only needed for emulator or TalkBack work:
+
+- Instrumented tests: boot an emulator (headless: `emulator -avd <name> -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect`), run `./gradlew connectedDebugAndroidTest`, then `adb emu kill` and `adb kill-server`.
+- App state persists between runs. Known senders stay in DataStore, so first-contact behaviour only appears on a fresh install. Reset with `adb shell pm clear com.oumatjie.app`.
+- Screenshots: in PowerShell, `adb exec-out screencap -p > file.png` corrupts the PNG. Use `adb shell screencap -p //sdcard/s.png` then `adb pull //sdcard/s.png`.
+- To tap reliably, `adb shell uiautomator dump //sdcard/dump.xml`, pull it, and tap the midpoint of the target's `bounds`. The doubled leading slash stops Git Bash rewriting device paths.
+- TalkBack: `adb shell input tap` bypasses touch exploration, release TalkBack doesn't log what it speaks, and `uiautomator dump` doesn't expose headings. Assert heading semantics with an instrumented Compose test instead.
+
 ## 3. Google Cloud project (needed for real Gmail)
 
 The demo inbox does not need credentials, and the app always offers it as a fallback. Before
