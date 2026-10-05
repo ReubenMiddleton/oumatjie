@@ -39,9 +39,13 @@ sealed interface SummaryUiState {
 
 data class MailUiState(
     val isLoading: Boolean = false,
+    /** True only while a manual inbox refresh is in flight. Unlike [isLoading], this keeps the inbox on screen. */
+    val isRefreshing: Boolean = false,
     val inbox: List<MailSummary> = emptyList(),
     val selectedMessage: MailMessage? = null,
     val errorMessage: String? = null,
+    /** Shown on the inbox when a refresh fails. Distinct from [errorMessage], which replaces the inbox. */
+    val refreshErrorMessage: String? = null,
     val downloadingAttachmentId: String? = null,
     /** Message ids whose sender had never been seen before this inbox load — see
      * docs/AI_ASSISTANT.md, "First-contact sender flagging". */
@@ -53,6 +57,35 @@ data class MailUiState(
     val scamCheck: ScamCheckUiState = ScamCheckUiState.Idle,
     val summary: SummaryUiState = SummaryUiState.Idle,
 )
+
+internal data class LoadedInbox(
+    val messages: List<MailSummary>,
+    val firstContactMessageIds: Set<String>,
+    val categoryByMessageId: Map<String, MailCategory>,
+)
+
+/** Inbox fields shared by the initial load and a complete refresh. Does not touch navigation state. */
+internal fun MailUiState.withLoadedInbox(loaded: LoadedInbox): MailUiState = copy(
+    inbox = loaded.messages,
+    firstContactMessageIds = loaded.firstContactMessageIds,
+    categoryByMessageId = loaded.categoryByMessageId,
+)
+
+private fun errorMessageFor(failure: Throwable, fallback: String): String =
+    (failure as? MailAuthException)?.message ?: fallback
+
+private suspend fun deriveLoadedInbox(messages: List<MailSummary>, senders: KnownSendersRepository): LoadedInbox {
+    val firstContactMessageIds = messages
+        .filter { senders.isFirstContact(it.senderAddress) }
+        .map { it.id }
+        .toSet()
+    senders.recordSeen(messages.map { it.senderAddress })
+    return LoadedInbox(
+        messages = messages,
+        firstContactMessageIds = firstContactMessageIds,
+        categoryByMessageId = CategoryAssigner.assignAll(messages),
+    )
+}
 
 class MailViewModel(
     private val repository: MailRepository,
@@ -79,19 +112,14 @@ class MailViewModel(
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, errorMessage = null) }
             runCatching { repository.loadInbox() }
-                .onSuccess { inbox ->
-                    val firstContactIds = inbox
-                        .filter { knownSendersRepository.isFirstContact(it.senderAddress) }
-                        .map { it.id }
-                        .toSet()
-                    knownSendersRepository.recordSeen(inbox.map { it.senderAddress })
+                .onSuccess { load ->
+                    // Initial load still shows whatever was mapped, including a partial page.
+                    // Closing an open message stays on this path only.
+                    val loaded = deriveLoadedInbox(load.messages, knownSendersRepository)
                     _state.update {
-                        it.copy(
+                        it.withLoadedInbox(loaded).copy(
                             isLoading = false,
-                            inbox = inbox,
                             selectedMessage = null,
-                            firstContactMessageIds = firstContactIds,
-                            categoryByMessageId = CategoryAssigner.assignAll(inbox),
                         )
                     }
                 }
@@ -103,7 +131,45 @@ class MailViewModel(
         }
     }
 
+    fun refreshInbox() {
+        val current = _state.value
+        if (current.isRefreshing || current.isLoading || current.selectedMessage != null) return
+        _state.update { it.copy(isRefreshing = true, refreshErrorMessage = null) }
+        viewModelScope.launch {
+            runCatching { repository.loadInbox() }
+                .onSuccess { load ->
+                    if (!load.isComplete) {
+                        _state.update {
+                            it.copy(
+                                isRefreshing = false,
+                                refreshErrorMessage = CHECK_FAILED_MESSAGE,
+                            )
+                        }
+                    } else {
+                        val loaded = deriveLoadedInbox(load.messages, knownSendersRepository)
+                        _state.update {
+                            it.withLoadedInbox(loaded).copy(
+                                isRefreshing = false,
+                                refreshErrorMessage = null,
+                            )
+                        }
+                    }
+                }
+                .onFailureIgnoringCancellation { failure ->
+                    _state.update {
+                        it.copy(
+                            isRefreshing = false,
+                            refreshErrorMessage = errorMessageFor(failure, CHECK_FAILED_MESSAGE),
+                        )
+                    }
+                }
+        }
+    }
+
     fun openMessage(id: String) {
+        // A refresh keeps the inbox on screen. Opening here would set isLoading and hide it,
+        // and would let Done reading or Trash rewrite the list under the in-flight result.
+        if (_state.value.isRefreshing) return
         viewModelScope.launch {
             // Loading state only, not the full-screen errorMessage: a failure here should
             // leave the user on the inbox they already have, not blow it away (that field
@@ -262,9 +328,6 @@ class MailViewModel(
         }
     }
 
-    private fun errorMessageFor(failure: Throwable, fallback: String): String =
-        (failure as? MailAuthException)?.message ?: fallback
-
     /**
      * Like [Result.onFailure], but re-throws [CancellationException] instead of treating it as
      * a reportable error. Without this, cancelling [attachmentDownloadJob] (or any other
@@ -278,6 +341,8 @@ class MailViewModel(
         }
 
     companion object {
+        private const val CHECK_FAILED_MESSAGE = "We could not check for new mail. Please try again."
+
         fun factory(
             repository: MailRepository,
             attachmentDownloader: AttachmentDownloader,

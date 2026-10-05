@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -53,11 +54,12 @@ import com.granify.app.pdf.PdfViewerActivity
 import com.granify.app.ui.components.ConfirmationDialog
 import com.granify.app.ui.components.ErrorScreen
 import com.granify.app.ui.components.InfoCardTone
+import com.granify.app.ui.components.LoadingScreen
+import com.granify.app.ui.components.OumatjieButton
 import com.granify.app.ui.components.OumatjieHeroButton
 import com.granify.app.ui.components.OumatjieInfoCard
 import com.granify.app.ui.components.OumatjieSecondaryButton
 import com.granify.app.ui.components.OumatjieTertiaryButton
-import com.granify.app.ui.components.LoadingScreen
 
 @Composable
 fun MailRoute(
@@ -135,6 +137,9 @@ fun MailRoute(
                     messages = state.inbox,
                     firstContactMessageIds = state.firstContactMessageIds,
                     categoryByMessageId = state.categoryByMessageId,
+                    isRefreshing = state.isRefreshing,
+                    refreshErrorMessage = state.refreshErrorMessage,
+                    onRefresh = viewModel::refreshInbox,
                     onOpen = viewModel::openMessage,
                     onOpenSettings = onOpenSettings,
                 )
@@ -148,6 +153,9 @@ private fun InboxScreen(
     messages: List<MailSummary>,
     firstContactMessageIds: Set<String>,
     categoryByMessageId: Map<String, MailCategory>,
+    isRefreshing: Boolean,
+    refreshErrorMessage: String?,
+    onRefresh: () -> Unit,
     onOpen: (String) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -163,19 +171,40 @@ private fun InboxScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            Text(
-                text = "Your mail",
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold,
-                // Lets TalkBack users jump straight here with the "next heading" gesture,
-                // instead of swiping through every message first. See docs/DESIGN_SYSTEM.md.
-                modifier = Modifier.semantics { heading() },
-            )
-            Text(
-                text = "Tap a message to read it.",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "Your mail",
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Bold,
+                    // Lets TalkBack users jump straight here with the "next heading" gesture,
+                    // instead of swiping through every message first. See docs/DESIGN_SYSTEM.md.
+                    modifier = Modifier.semantics { heading() },
+                )
+                Text(
+                    text = "Tap a message to read it.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                OumatjieButton(
+                    label = "Check for new mail",
+                    onClick = onRefresh,
+                    enabled = !isRefreshing,
+                )
+                if (isRefreshing) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.height(24.dp))
+                        Text("Checking for new mail…", style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+                if (refreshErrorMessage != null) {
+                    OumatjieInfoCard(tone = InfoCardTone.Problem) {
+                        Text(refreshErrorMessage, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
         }
         if (messages.isEmpty()) {
             item {
@@ -190,6 +219,7 @@ private fun InboxScreen(
                 message = message,
                 isFirstContact = message.id in firstContactMessageIds,
                 category = categoryByMessageId[message.id],
+                enabled = !isRefreshing,
                 onClick = { onOpen(message.id) },
                 // A fast, gentle fade for cards appearing in the list (docs/ROADMAP.md's
                 // retrospective: "zero motion beyond screen transitions" was a flagged gap).
@@ -213,7 +243,8 @@ private fun HelpDialog(onDismiss: () -> Unit) {
         title = "Help with Oumatjie",
         explanation = "Tap a message to read it. When you are finished, choose Done reading. " +
             "Oumatjie will keep the message in your inbox and mark it as read. " +
-            "If a message has a document attached, choose Open document to view it.",
+            "If a message has a document attached, choose Open document to view it. " +
+            "Choose Check for new mail to look for messages that have just arrived.",
         confirmLabel = "Close help",
         onConfirm = onDismiss,
         onDismiss = onDismiss,
@@ -225,21 +256,30 @@ private fun MailCard(
     message: MailSummary,
     isFirstContact: Boolean,
     category: MailCategory?,
+    enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val containerColor = if (message.isUnread) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
+    }
+    // Disabled cards stay the same colours. The default disabled content is faded, which would
+    // make the mail hard to read while a refresh keeps it on screen for context.
+    val contentColor = contentColorFor(containerColor)
     Card(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier.fillMaxWidth(),
         // The larger of the app's two card radii (docs/DESIGN_SYSTEM.md, "Shape") — this is a
         // primary, tappable content surface, not an informational one (see OumatjieInfoCard).
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
-            containerColor = if (message.isUnread) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            },
+            containerColor = containerColor,
+            contentColor = contentColor,
+            disabledContainerColor = containerColor,
+            disabledContentColor = contentColor,
         ),
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

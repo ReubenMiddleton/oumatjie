@@ -6,6 +6,7 @@ import com.granify.app.auth.AuthorizeOutcome
 import com.granify.app.data.MailAuthException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -29,8 +30,9 @@ class GmailMailRepositoryTest {
 
         val inbox = repository.loadInbox()
 
-        assertEquals(1, inbox.size)
-        val summary = inbox.single()
+        assertTrue(inbox.isComplete)
+        assertEquals(1, inbox.messages.size)
+        val summary = inbox.messages.single()
         assertEquals("Sarah", summary.senderName)
         assertEquals("Lunch on Sunday", summary.subject)
         assertTrue(summary.isUnread)
@@ -68,7 +70,33 @@ class GmailMailRepositoryTest {
 
         val inbox = repository.loadInbox()
 
-        assertEquals(listOf("msg-ok"), inbox.map { it.id })
+        assertEquals(listOf("msg-ok"), inbox.messages.map { it.id })
+        assertFalse(inbox.isComplete)
+    }
+
+    @Test
+    fun loadInbox_emptyIdListIsACompleteEmptyInbox() = runTest {
+        val api = FakeGmailApiService(messages = mutableMapOf(), listedIds = emptyList())
+        val repository = GmailMailRepository(api, FakeAuthManager())
+
+        val inbox = repository.loadInbox()
+
+        assertTrue(inbox.messages.isEmpty())
+        assertTrue(inbox.isComplete)
+    }
+
+    @Test
+    fun loadInbox_allDetailFetchesFailingIsAnIncompleteEmptyPage() = runTest {
+        val api = FakeGmailApiService(
+            messages = mutableMapOf("msg-1" to sampleMessage),
+            failingIds = setOf("msg-1"),
+        )
+        val repository = GmailMailRepository(api, FakeAuthManager())
+
+        val inbox = repository.loadInbox()
+
+        assertTrue(inbox.messages.isEmpty())
+        assertFalse(inbox.isComplete)
     }
 
     @Test

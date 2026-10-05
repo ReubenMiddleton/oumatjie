@@ -3,7 +3,11 @@ package com.granify.app
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -72,6 +76,36 @@ class AccessibilitySemanticsTest {
     fun inbox_titleIsAHeading() {
         openDemoInbox()
         composeRule.onNodeWithText("Your mail").assertIsDisplayed().assert(isHeading)
+    }
+
+    @Test
+    fun inbox_checkForNewMailStaysLabelledAndBlocksMessagesWhileChecking() {
+        openDemoInbox()
+        composeRule.onNodeWithText("Check for new mail")
+            .assertIsDisplayed()
+            .assertHasClickAction()
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Heading))
+
+        composeRule.onNodeWithText("Check for new mail").performClick()
+        // The demo load waits 250ms. Assert the disabled card in that same poll, or the
+        // check can finish before a later assertion runs.
+        composeRule.waitUntil(TIMEOUT_MS) {
+            val checking = composeRule.onAllNodesWithText("Checking for new mail…").fetchSemanticsNodes().isNotEmpty()
+            checking &&
+                runCatching {
+                    composeRule.onNodeWithText(DEMO_SUBJECT).assertIsNotEnabled()
+                }.isSuccess
+        }
+        composeRule.onNodeWithText("Your mail").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Something went wrong").assertCountEquals(0)
+
+        composeRule.waitUntil(TIMEOUT_MS) {
+            composeRule.onAllNodesWithText("Checking for new mail…").fetchSemanticsNodes().isEmpty()
+        }
+        composeRule.onNodeWithText(DEMO_SUBJECT).assertIsEnabled().performClick()
+        composeRule.waitUntil(TIMEOUT_MS) {
+            composeRule.onAllNodesWithText(BACK_TO_MAIL).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @Test

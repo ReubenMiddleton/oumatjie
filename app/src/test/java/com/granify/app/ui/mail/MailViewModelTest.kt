@@ -2,6 +2,7 @@ package com.granify.app.ui.mail
 
 import com.granify.app.ai.AiProvider
 import com.granify.app.ai.ScamAssessment
+import com.granify.app.data.InboxLoad
 import com.granify.app.data.MailAttachment
 import com.granify.app.data.MailMessage
 import com.granify.app.data.MailRepository
@@ -10,6 +11,7 @@ import com.granify.app.data.attachments.AttachmentDownloader
 import com.granify.app.data.categories.StarterCategories
 import com.granify.app.data.senders.KnownSendersRepository
 import com.granify.app.ui.MainDispatcherRule
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -199,6 +201,219 @@ class MailViewModelTest {
     }
 
     @Test
+    fun refreshInbox_replacesTheInboxWhenThePageIsComplete() = runTest {
+        val original = summary(id = "message-1", from = "sender@example.test")
+        val arrived = summary(
+            id = "message-2",
+            from = "new@example.test",
+            subject = "Your March statement is ready",
+        )
+        val repository = FakeMailRepository().apply {
+            inboxResults = listOf(
+                InboxLoad(listOf(original), isComplete = true),
+                InboxLoad(listOf(original, arrived), isComplete = true),
+            )
+        }
+        val knownSenders = FakeKnownSendersRepository()
+        val viewModel = MailViewModel(repository, FakeAttachmentDownloader(), knownSenders)
+
+        viewModel.loadInbox()
+        viewModel.refreshInbox()
+
+        assertEquals(listOf("message-1", "message-2"), viewModel.state.value.inbox.map { it.id })
+        assertFalse(viewModel.state.value.isRefreshing)
+        assertFalse(viewModel.state.value.isLoading)
+        assertNull(viewModel.state.value.errorMessage)
+        assertNull(viewModel.state.value.refreshErrorMessage)
+        assertTrue("message-2" in viewModel.state.value.firstContactMessageIds)
+        assertFalse("message-1" in viewModel.state.value.firstContactMessageIds)
+        assertEquals(StarterCategories.Bills, viewModel.state.value.categoryByMessageId["message-2"])
+        assertEquals("new@example.test", knownSenders.recorded.single { it == "new@example.test" })
+    }
+
+    @Test
+    fun refreshInbox_completeEmptyPageClearsTheInbox() = runTest {
+        val repository = FakeMailRepository().apply {
+            inboxResults = listOf(
+                InboxLoad(listOf(summary()), isComplete = true),
+                InboxLoad(emptyList(), isComplete = true),
+            )
+        }
+        val viewModel = MailViewModel(repository, FakeAttachmentDownloader(), FakeKnownSendersRepository())
+
+        viewModel.loadInbox()
+        viewModel.refreshInbox()
+
+        assertTrue(viewModel.state.value.inbox.isEmpty())
+        assertFalse(viewModel.state.value.isRefreshing)
+        assertNull(viewModel.state.value.refreshErrorMessage)
+    }
+
+    @Test
+    fun refreshInbox_thrownFailureKeepsTheInbox() = runTest {
+        val repository = FakeMailRepository().apply { failInboxOnCall = 2 }
+        val viewModel = MailViewModel(repository, FakeAttachmentDownloader(), FakeKnownSendersRepository())
+
+        viewModel.loadInbox()
+        val inboxBefore = viewModel.state.value.inbox
+        val firstContactBefore = viewModel.state.value.firstContactMessageIds
+        viewModel.refreshInbox()
+
+        assertEquals(inboxBefore, viewModel.state.value.inbox)
+        assertEquals(firstContactBefore, viewModel.state.value.firstContactMessageIds)
+        assertFalse(viewModel.state.value.isLoading)
+        assertFalse(viewModel.state.value.isRefreshing)
+        assertNull(viewModel.state.value.errorMessage)
+        assertEquals(
+            "We could not check for new mail. Please try again.",
+            viewModel.state.value.refreshErrorMessage,
+        )
+    }
+
+    @Test
+    fun refreshInbox_incompletePageKeepsTheInboxAndDoesNotRecordSenders() = runTest {
+        val original = summary()
+        val droppedNeighbour = summary(
+            id = "other",
+            from = "other@example.test",
+            subject = "Your March statement is ready",
+        )
+        val repository = FakeMailRepository().apply {
+            inboxResults = listOf(
+                InboxLoad(listOf(original), isComplete = true),
+                InboxLoad(listOf(droppedNeighbour), isComplete = false),
+            )
+        }
+        val knownSenders = FakeKnownSendersRepository()
+        val viewModel = MailViewModel(repository, FakeAttachmentDownloader(), knownSenders)
+
+        viewModel.loadInbox()
+        val firstContactBefore = viewModel.state.value.firstContactMessageIds
+        val categoriesBefore = viewModel.state.value.categoryByMessageId
+        viewModel.refreshInbox()
+
+        assertEquals(listOf(original), viewModel.state.value.inbox)
+        assertEquals(firstContactBefore, viewModel.state.value.firstContactMessageIds)
+        assertEquals(categoriesBefore, viewModel.state.value.categoryByMessageId)
+        assertFalse("other@example.test" in knownSenders.recorded)
+        assertFalse(viewModel.state.value.isLoading)
+        assertNull(viewModel.state.value.errorMessage)
+        assertEquals(
+            "We could not check for new mail. Please try again.",
+            viewModel.state.value.refreshErrorMessage,
+        )
+    }
+
+    @Test
+    fun loadInbox_showsAnIncompletePage() = runTest {
+        val partial = summary()
+        val repository = FakeMailRepository().apply {
+            inboxResults = listOf(InboxLoad(listOf(partial), isComplete = false))
+        }
+        val viewModel = MailViewModel(repository, FakeAttachmentDownloader(), FakeKnownSendersRepository())
+
+        viewModel.loadInbox()
+
+        assertEquals(listOf(partial.id), viewModel.state.value.inbox.map { it.id })
+        assertNull(viewModel.state.value.refreshErrorMessage)
+        assertFalse(viewModel.state.value.isLoading)
+    }
+
+    @Test
+    fun refreshInbox_whileAlreadyRefreshing_doesNotStartASecondLoad() = runTest {
+        val repository = FakeMailRepository().apply { suspendOnCall = 2 }
+        val viewModel = MailViewModel(repository, FakeAttachmentDownloader(), FakeKnownSendersRepository())
+
+        viewModel.loadInbox()
+        viewModel.refreshInbox()
+        assertTrue(viewModel.state.value.isRefreshing)
+        viewModel.refreshInbox()
+
+        assertEquals(2, repository.loadInboxCalls)
+        repository.suspendGate.complete(Unit)
+        assertFalse(viewModel.state.value.isRefreshing)
+
+        viewModel.refreshInbox()
+        assertEquals(3, repository.loadInboxCalls)
+    }
+
+    @Test
+    fun refreshInbox_whileLoadingOrReading_doesNotCallTheRepositoryAgain() = runTest {
+        val repository = FakeMailRepository().apply { suspendOnCall = 1 }
+        val viewModel = MailViewModel(repository, FakeAttachmentDownloader(), FakeKnownSendersRepository())
+
+        viewModel.loadInbox()
+        viewModel.refreshInbox()
+        assertEquals(1, repository.loadInboxCalls)
+
+        repository.suspendGate.complete(Unit)
+        viewModel.openMessage(repository.message.summary.id)
+        viewModel.refreshInbox()
+
+        assertEquals(1, repository.loadInboxCalls)
+        assertNotNull(viewModel.state.value.selectedMessage)
+    }
+
+    @Test
+    fun openMessage_whileRefreshing_doesNotOpenAndWorksAgainAfterwards() = runTest {
+        val repository = FakeMailRepository().apply { suspendOnCall = 2 }
+        val viewModel = MailViewModel(repository, FakeAttachmentDownloader(), FakeKnownSendersRepository())
+
+        viewModel.loadInbox()
+        viewModel.refreshInbox()
+        viewModel.openMessage(repository.message.summary.id)
+
+        assertEquals(0, repository.loadMessageCalls)
+        assertNull(viewModel.state.value.selectedMessage)
+        assertFalse(viewModel.state.value.isLoading)
+
+        repository.suspendGate.complete(Unit)
+        viewModel.openMessage(repository.message.summary.id)
+
+        assertEquals(1, repository.loadMessageCalls)
+        assertNotNull(viewModel.state.value.selectedMessage)
+    }
+
+    @Test
+    fun withLoadedInbox_replacesInboxFieldsAndLeavesTheOpenMessageAlone() {
+        val openMessage = messageFor(summary())
+        val state = MailUiState(
+            inbox = listOf(summary(id = "old")),
+            selectedMessage = openMessage,
+            isLoading = true,
+            isRefreshing = true,
+        )
+
+        val updated = state.withLoadedInbox(
+            LoadedInbox(
+                messages = listOf(summary(id = "new")),
+                firstContactMessageIds = setOf("new"),
+                categoryByMessageId = mapOf("new" to StarterCategories.Bills),
+            ),
+        )
+
+        assertEquals(openMessage, updated.selectedMessage)
+        assertTrue(updated.isLoading)
+        assertTrue(updated.isRefreshing)
+        assertEquals(listOf("new"), updated.inbox.map { it.id })
+        assertEquals(setOf("new"), updated.firstContactMessageIds)
+        assertEquals(StarterCategories.Bills, updated.categoryByMessageId["new"])
+    }
+
+    @Test
+    fun loadInbox_stillClearsAnOpenMessage() = runTest {
+        val repository = FakeMailRepository()
+        val viewModel = MailViewModel(repository, FakeAttachmentDownloader(), FakeKnownSendersRepository())
+
+        viewModel.loadInbox()
+        viewModel.openMessage(repository.message.summary.id)
+        viewModel.loadInbox()
+
+        assertNull(viewModel.state.value.selectedMessage)
+        assertFalse(viewModel.state.value.isLoading)
+    }
+
+    @Test
     fun openMessage_resetsScamCheckAndSummaryFromAPreviousMessage() = runTest {
         val repository = FakeMailRepository()
         val viewModel = MailViewModel(repository, FakeAttachmentDownloader(), FakeKnownSendersRepository())
@@ -271,12 +486,35 @@ class MailViewModelTest {
         assertTrue(result.isDemo)
     }
 
+    private val sampleSummary = MailSummary(
+        id = "message-1",
+        senderName = "Sender",
+        senderAddress = "a@b.test",
+        subject = "Subject",
+        preview = "Preview",
+        receivedLabel = "Today",
+        isUnread = true,
+        attachmentCount = 0,
+    )
+
+    private fun summary(id: String = "message-1", from: String = "a@b.test", subject: String = "Subject"): MailSummary =
+        sampleSummary.copy(id = id, senderAddress = from, subject = subject)
+
+    private fun messageFor(mailSummary: MailSummary): MailMessage = MailMessage(
+        summary = mailSummary,
+        bodyParagraphs = listOf("Body"),
+        attachments = emptyList(),
+    )
+
     private class FakeMailRepository(
         private val failWhenFinishing: Boolean = false,
         private val failWhenTrashing: Boolean = false,
         private val failWhenOpeningMessage: Boolean = false,
         subject: String = "Subject",
     ) : MailRepository {
+        var inboxResults: List<InboxLoad>? = null
+        var failInboxOnCall: Int? = null
+        var suspendOnCall: Int? = null
         val attachment = MailAttachment(
             id = "attachment-1",
             name = "Sample.pdf",
@@ -299,10 +537,26 @@ class MailViewModelTest {
         )
         val finishedIds = mutableListOf<String>()
         val trashedIds = mutableListOf<String>()
+        var loadInboxCalls = 0
+        var loadMessageCalls = 0
+        val suspendGate = CompletableDeferred<Unit>()
+        private var inboxResultIndex = 0
 
-        override suspend fun loadInbox() = listOf(message.summary)
+        override suspend fun loadInbox(): InboxLoad {
+            loadInboxCalls++
+            if (suspendOnCall == loadInboxCalls) suspendGate.await()
+            if (failInboxOnCall == loadInboxCalls) error("Could not load inbox")
+            val scripted = inboxResults
+            if (scripted != null) {
+                val result = scripted[inboxResultIndex]
+                inboxResultIndex++
+                return result
+            }
+            return InboxLoad(messages = listOf(message.summary), isComplete = true)
+        }
 
         override suspend fun loadMessage(id: String): MailMessage {
+            loadMessageCalls++
             if (failWhenOpeningMessage) error("Could not load message")
             return message
         }

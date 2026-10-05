@@ -50,9 +50,12 @@ class MockMailRepository : MailRepository {
         ),
     ).associateByTo(linkedMapOf()) { it.summary.id }
 
-    override suspend fun loadInbox(): List<MailSummary> {
+    override suspend fun loadInbox(): InboxLoad {
         delay(250)
-        return messages.values.map { it.summary }
+        return InboxLoad(
+            messages = messages.values.map { it.summary },
+            isComplete = true,
+        )
     }
 
     override suspend fun loadMessage(id: String): MailMessage {

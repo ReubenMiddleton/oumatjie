@@ -126,6 +126,24 @@ What "verified" actually means for this snapshot, so it doesn't need to be re-de
 
 ## Decisions
 
+### Checking for new mail keeps the current inbox unless the new page is complete (2026-10-05)
+The inbox had no way to ask for new mail without leaving the screen. **Check for new mail** is a
+labelled standard button under the inbox heading, not a gesture or an icon. While it runs, the
+messages stay on screen with **Checking for new mail…**, and the message cards cannot be opened.
+A failure is an inline problem card. **Try again** on a failed first load is unchanged.
+
+`MailRepository.loadInbox()` now returns `InboxLoad(messages, isComplete)`. Zero listed Gmail ids
+is a complete empty inbox and may replace the list. Any dropped detail fetch is incomplete, even
+when every fetch failed and the mapped list is empty, and a refresh must keep the inbox already
+on screen. A thrown refresh failure does the same. The first load still shows a partial page and
+still does not rethrow one detail failure — that first-paint choice (2026-08-25) is unchanged,
+because there is no previous inbox to preserve.
+
+Refresh success writes only the inbox, first-contact ids, and categories. It does not clear
+`selectedMessage`. The initial load still does. `openMessage()` returns immediately while a
+refresh is running, so a click cannot set `isLoading` and hide the inbox, and **Done reading** /
+**Move to Trash** cannot rewrite the list underneath the in-flight result.
+
 ### Heading semantics are now verified, not assumed — instrumented tests added, and one real gap found (2026-08-25)
 The open question left by the emulator session ("does `Modifier.semantics { heading() }` actually
 work?") is **answered: yes.** `app/src/androidTest/.../AccessibilitySemanticsTest.kt` asserts it

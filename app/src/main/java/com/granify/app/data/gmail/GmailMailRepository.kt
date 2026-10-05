@@ -3,10 +3,10 @@ package com.granify.app.data.gmail
 import com.granify.app.auth.AuthManager
 import com.granify.app.auth.AuthorizeOutcome
 import com.granify.app.auth.GmailScopes
+import com.granify.app.data.InboxLoad
 import com.granify.app.data.MailAuthException
 import com.granify.app.data.MailMessage
 import com.granify.app.data.MailRepository
-import com.granify.app.data.MailSummary
 import com.granify.app.util.logSwallowed
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -23,17 +23,20 @@ class GmailMailRepository(
     private val authManager: AuthManager,
 ) : MailRepository {
 
-    override suspend fun loadInbox(): List<MailSummary> = coroutineScope {
+    override suspend fun loadInbox(): InboxLoad = coroutineScope {
         val token = authHeader()
         val refs = api.listMessages(token).messages
         // Each message is fetched independently and a single failure (a transient blip, or a
         // message deleted between listing and fetching) is dropped rather than failing the
         // whole inbox — showing the 24 that loaded beats a blank error screen over 1 that
         // didn't, and there is nothing actionable a user could do about it anyway.
-        refs
-            .map { ref -> async { fetchMessageOrNull(token, ref.id) } }
-            .mapNotNull { it.await() }
-            .map { it.toSummary() }
+        // isComplete tells a later refresh apart from that first paint: zero listed ids is a
+        // genuinely empty inbox, and any null fetch means the page is incomplete.
+        val fetched = refs.map { ref -> async { fetchMessageOrNull(token, ref.id) } }.map { it.await() }
+        InboxLoad(
+            messages = fetched.mapNotNull { it?.toSummary() },
+            isComplete = fetched.none { it == null },
+        )
     }
 
     private suspend fun fetchMessageOrNull(token: String, id: String): GmailMessage? = try {
