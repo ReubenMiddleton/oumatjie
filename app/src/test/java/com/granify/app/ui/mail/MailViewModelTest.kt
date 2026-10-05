@@ -4,6 +4,7 @@ import com.granify.app.ai.AiProvider
 import com.granify.app.ai.ScamAssessment
 import com.granify.app.data.InboxLoad
 import com.granify.app.data.MailAttachment
+import com.granify.app.data.MailLink
 import com.granify.app.data.MailMessage
 import com.granify.app.data.MailRepository
 import com.granify.app.data.MailSummary
@@ -470,6 +471,30 @@ class MailViewModelTest {
     }
 
     @Test
+    fun scamCheckAndSummary_sendBodyParagraphsAndNotLinkDestinations() = runTest {
+        val repository = FakeMailRepository()
+        repository.message = repository.message.copy(
+            links = listOf(
+                MailLink(
+                    destination = "https://phish.example/login",
+                    messageLabels = listOf("https://bank.example"),
+                ),
+            ),
+        )
+        val viewModel = MailViewModel(repository, FakeAttachmentDownloader(), FakeKnownSendersRepository())
+        val provider = FakeAiProvider()
+
+        viewModel.loadInbox()
+        viewModel.openMessage(repository.message.summary.id)
+        viewModel.checkForScamSignals(provider)
+        viewModel.summarizeSelectedMessage(provider, isDemo = false)
+        advanceUntilIdle()
+
+        assertEquals("Body", provider.lastScamBody)
+        assertEquals("Body", provider.lastSummaryBody)
+    }
+
+    @Test
     fun summarizeSelectedMessage_surfacesTheSummaryAndDemoFlag() = runTest {
         val repository = FakeMailRepository()
         val viewModel = MailViewModel(repository, FakeAttachmentDownloader(), FakeKnownSendersRepository())
@@ -521,7 +546,7 @@ class MailViewModelTest {
             mimeType = "application/pdf",
             sizeLabel = "10 KB",
         )
-        val message = MailMessage(
+        var message = MailMessage(
             summary = MailSummary(
                 id = "message-1",
                 senderName = "Sender",
@@ -603,12 +628,20 @@ class MailViewModelTest {
     ) : AiProvider {
         var scamCheckCallCount = 0
             private set
+        var lastScamBody: String? = null
+            private set
+        var lastSummaryBody: String? = null
+            private set
 
         override suspend fun checkForScamSignals(subject: String, senderAddress: String, bodyText: String): ScamAssessment {
             scamCheckCallCount++
+            lastScamBody = bodyText
             return scamAssessment
         }
 
-        override suspend fun summarize(subject: String, bodyText: String): String = summaryText
+        override suspend fun summarize(subject: String, bodyText: String): String {
+            lastSummaryBody = bodyText
+            return summaryText
+        }
     }
 }

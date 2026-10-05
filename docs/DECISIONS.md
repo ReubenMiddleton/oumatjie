@@ -126,6 +126,28 @@ What "verified" actually means for this snapshot, so it doesn't need to be re-de
 
 ## Decisions
 
+### Message links are confirmed https hand-offs, and anchor labels are never destinations (2026-10-05)
+The reading body stays plain text: `text/plain` when that part exists, otherwise HTML with the tags
+removed. Supported links are a separate list on the opened message. An anchor contributes a
+destination only from its `href`, and only when that address validates as https. The visible
+label is kept when it differs, so the reader can see the difference, and it is never opened.
+A URL-looking label does not become a second link just because stripping the tags left it in
+the body.
+
+Raw https text is a destination only with a known source. A `text/plain` part is that source
+when one exists. In an HTML-only message, raw https text is taken from what remains after
+anchors, including their labels, are removed. `http`, `mailto`, `tel`, and other schemes are
+left as ordinary text. The Gmail snippet is not scanned. Nothing in the link list is added to
+read-aloud, the scam check, or the summary.
+
+**Open link** is a labelled button on the message. Every tap asks again. The dialog says
+Oumatjie is leaving the message and shows the same destination string. Confirm builds an
+`ACTION_VIEW` intent whose data is that string, with `CATEGORY_BROWSABLE`. Cancel stays on the
+message. If Android has no handler, the message stays open and says the link could not be
+opened. There is no WebView, Custom Tabs dependency, or browser package. `resolveActivity` is
+not used: on this target SDK it needs a manifest `<queries>` entry, and `startActivity` does
+not.
+
 ### Checking for new mail keeps the current inbox unless the new page is complete (2026-10-05)
 The inbox had no way to ask for new mail without leaving the screen. **Check for new mail** is a
 labelled standard button under the inbox heading, not a gesture or an icon. While it runs, the

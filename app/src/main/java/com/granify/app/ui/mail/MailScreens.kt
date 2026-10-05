@@ -1,5 +1,6 @@
 package com.granify.app.ui.mail
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.tween
@@ -43,6 +44,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.granify.app.ai.AiProvider
 import com.granify.app.ai.ScamAssessment
 import com.granify.app.data.MailAttachment
+import com.granify.app.data.MailLink
 import com.granify.app.data.MailMessage
 import com.granify.app.data.MailRepository
 import com.granify.app.data.MailSummary
@@ -122,6 +124,7 @@ fun MailRoute(
                     onDone = viewModel::finishMessage,
                     onMoveToTrash = viewModel::moveSelectedMessageToTrash,
                     onOpenAttachment = viewModel::openAttachment,
+                    startExternalActivity = { intent -> context.startActivity(intent) },
                     onSummarize = {
                         viewModel.summarizeSelectedMessage(
                             provider = realProvider ?: demoAiProvider,
@@ -349,9 +352,12 @@ private fun MessageScreen(
     onDone: () -> Unit,
     onMoveToTrash: () -> Unit,
     onOpenAttachment: (MailAttachment) -> Unit,
+    startExternalActivity: (Intent) -> Unit,
     onSummarize: () -> Unit,
 ) {
     var showTrashConfirmation by remember { mutableStateOf(false) }
+    var pendingLink by remember(message.summary.id) { mutableStateOf<MailLink?>(null) }
+    var linkError by remember(message.summary.id) { mutableStateOf<String?>(null) }
     var firstContactDismissed by remember(message.summary.id) { mutableStateOf(false) }
     val (readAloudController, isSpeaking) = rememberReadAloudController()
     val readAloudText = remember(message) {
@@ -375,6 +381,21 @@ private fun MessageScreen(
             onDismiss = { showTrashConfirmation = false },
         )
     }
+    pendingLink?.let { link ->
+        ConfirmationDialog(
+            title = "Leave this message?",
+            explanation = leaveMessageExplanation(link.destination),
+            confirmLabel = "Open link",
+            onConfirm = {
+                pendingLink = null
+                linkError = when (startConfirmedDestination(link.destination, startExternalActivity)) {
+                    ConfirmedOpenResult.Opened -> null
+                    ConfirmedOpenResult.NotHttps, ConfirmedOpenResult.NoHandler -> LINK_COULD_NOT_BE_OPENED
+                }
+            },
+            onDismiss = { pendingLink = null },
+        )
+    }
 
     BackHandler(onBack = onBack)
     LazyColumn(
@@ -389,6 +410,14 @@ private fun MessageScreen(
             item {
                 OumatjieInfoCard(tone = InfoCardTone.Problem) {
                     Text(errorMessage, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+        val failedOpenMessage = linkError
+        if (failedOpenMessage != null) {
+            item {
+                OumatjieInfoCard(tone = InfoCardTone.Problem) {
+                    Text(failedOpenMessage, style = MaterialTheme.typography.bodyLarge)
                 }
             }
         }
@@ -435,6 +464,19 @@ private fun MessageScreen(
         item { HorizontalDivider() }
         items(message.bodyParagraphs) { paragraph ->
             Text(paragraph, style = MaterialTheme.typography.bodyLarge)
+        }
+        if (message.links.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Links",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.semantics { heading() },
+                )
+            }
+            items(message.links, key = { it.destination }) { link ->
+                LinkCard(link = link, onOpen = { pendingLink = link })
+            }
         }
         items(message.attachments, key = { it.id }) { attachment ->
             AttachmentCard(
@@ -565,5 +607,19 @@ private fun AttachmentCard(
         } else {
             OumatjieHeroButton(label = "Open document", onClick = onOpen)
         }
+    }
+}
+
+@Composable
+private fun LinkCard(link: MailLink, onOpen: () -> Unit) {
+    OumatjieInfoCard(tone = InfoCardTone.Highlight, contentSpacing = 10.dp) {
+        Text(link.destination, style = MaterialTheme.typography.bodyLarge)
+        link.messageLabels.forEach { label ->
+            Text(
+                "The message shows this as: $label",
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        }
+        OumatjieSecondaryButton(label = "Open link", onClick = onOpen)
     }
 }

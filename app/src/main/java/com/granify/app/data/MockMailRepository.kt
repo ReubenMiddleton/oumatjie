@@ -20,6 +20,12 @@ class MockMailRepository : MailRepository {
                 "Your monthly account statement is attached to this email.",
                 "For this demonstration, the sender and account details are fictional.",
             ),
+            links = listOf(
+                MailLink(
+                    destination = "https://example.com/statement",
+                    messageLabels = listOf("View your statement"),
+                ),
+            ),
             attachments = listOf(
                 MailAttachment(
                     id = "statement-pdf",

@@ -111,11 +111,11 @@
         <error line="82" column="46" source="standard:function-expression-body" />
     </file>
     <file name="src/main/java/com/granify/app/data/gmail/MimePayloadParsing.kt">
-        <error line="115" column="21" source="standard:argument-list-wrapping" />
-        <error line="115" column="36" source="standard:argument-list-wrapping" />
-        <error line="115" column="51" source="standard:argument-list-wrapping" />
-        <error line="116" column="21" source="standard:argument-list-wrapping" />
-        <error line="116" column="38" source="standard:argument-list-wrapping" />
+        <error line="121" column="21" source="standard:argument-list-wrapping" />
+        <error line="121" column="36" source="standard:argument-list-wrapping" />
+        <error line="121" column="51" source="standard:argument-list-wrapping" />
+        <error line="122" column="21" source="standard:argument-list-wrapping" />
+        <error line="122" column="38" source="standard:argument-list-wrapping" />
     </file>
     <file name="src/main/java/com/granify/app/data/gmail/NetworkModule.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -165,17 +165,17 @@
     </file>
     <file name="src/main/java/com/granify/app/ui/mail/MailScreens.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="361" column="46" source="standard:statement-wrapping" />
-        <error line="361" column="57" source="standard:statement-wrapping" />
-        <error line="361" column="71" source="standard:statement-wrapping" />
-        <error line="481" column="5" source="standard:function-signature" />
-        <error line="482" column="5" source="standard:function-signature" />
-        <error line="483" column="5" source="standard:function-signature" />
-        <error line="483" column="32" source="standard:function-signature" />
-        <error line="545" column="5" source="standard:function-signature" />
-        <error line="546" column="5" source="standard:function-signature" />
-        <error line="547" column="5" source="standard:function-signature" />
-        <error line="547" column="24" source="standard:function-signature" />
+        <error line="367" column="46" source="standard:statement-wrapping" />
+        <error line="367" column="57" source="standard:statement-wrapping" />
+        <error line="367" column="71" source="standard:statement-wrapping" />
+        <error line="523" column="5" source="standard:function-signature" />
+        <error line="524" column="5" source="standard:function-signature" />
+        <error line="525" column="5" source="standard:function-signature" />
+        <error line="525" column="32" source="standard:function-signature" />
+        <error line="587" column="5" source="standard:function-signature" />
+        <error line="588" column="5" source="standard:function-signature" />
+        <error line="589" column="5" source="standard:function-signature" />
+        <error line="589" column="24" source="standard:function-signature" />
     </file>
     <file name="src/main/java/com/granify/app/ui/mail/MailViewModel.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -216,8 +216,8 @@
         <error line="14" column="73" source="standard:class-signature" />
     </file>
     <file name="src/test/java/com/granify/app/ui/mail/MailViewModelTest.kt">
-        <error line="588" column="9" source="standard:class-signature" />
-        <error line="588" column="48" source="standard:class-signature" />
-        <error line="592" column="72" source="standard:function-signature" />
+        <error line="613" column="9" source="standard:class-signature" />
+        <error line="613" column="48" source="standard:class-signature" />
+        <error line="617" column="72" source="standard:function-signature" />
     </file>
 </baseline>
