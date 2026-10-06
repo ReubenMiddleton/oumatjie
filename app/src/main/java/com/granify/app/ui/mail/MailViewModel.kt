@@ -10,6 +10,7 @@ import com.granify.app.data.MailSummary
 import com.granify.app.data.attachments.AttachmentDownloader
 import com.granify.app.data.categories.CategoryAssigner
 import com.granify.app.data.categories.MailCategory
+import com.granify.app.data.isOpenablePdf
 import com.granify.app.data.senders.KnownSendersRepository
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -258,6 +259,10 @@ class MailViewModel(
 
     fun openAttachment(attachment: MailAttachment) {
         val messageId = _state.value.selectedMessage?.summary?.id ?: return
+        if (!isOpenablePdf(attachment.mimeType)) {
+            _state.update { it.copy(errorMessage = "Oumatjie can only open PDF documents.") }
+            return
+        }
         attachmentDownloadJob = viewModelScope.launch {
             _state.update { it.copy(downloadingAttachmentId = attachment.id, errorMessage = null) }
             runCatching { attachmentDownloader.download(messageId, attachment) }

@@ -179,8 +179,8 @@
     </file>
     <file name="src/main/java/com/granify/app/ui/mail/MailViewModel.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="74" column="76" source="standard:function-signature" />
-        <error line="337" column="109" source="standard:function-signature" />
+        <error line="75" column="76" source="standard:function-signature" />
+        <error line="342" column="109" source="standard:function-signature" />
     </file>
     <file name="src/main/java/com/granify/app/ui/mail/ReadAloudController.kt">
         <error line="23" column="5" source="standard:class-signature" />
@@ -216,8 +216,8 @@
         <error line="14" column="73" source="standard:class-signature" />
     </file>
     <file name="src/test/java/com/granify/app/ui/mail/MailViewModelTest.kt">
-        <error line="613" column="9" source="standard:class-signature" />
-        <error line="613" column="48" source="standard:class-signature" />
-        <error line="617" column="72" source="standard:function-signature" />
+        <error line="723" column="9" source="standard:class-signature" />
+        <error line="723" column="48" source="standard:class-signature" />
+        <error line="727" column="72" source="standard:function-signature" />
     </file>
 </baseline>

@@ -94,7 +94,53 @@ class MimePayloadParsingTest {
         assertEquals("att-1", result.attachments.single().id)
         assertEquals("statement.pdf", result.attachments.single().name)
         assertEquals("420 KB", result.attachments.single().sizeLabel)
+        assertEquals("application/pdf", result.attachments.single().mimeType)
         assertEquals(emptyList<String>(), result.links.map { it.destination })
+    }
+
+    @Test
+    fun toMailMessage_preservesListedAttachmentMimeTypes() {
+        val message = messageWithAttachments(
+            attachment(id = "pdf", filename = "statement.pdf", mimeType = "Application/PDF; charset=binary"),
+            attachment(id = "jpg", filename = "photo.jpg", mimeType = "image/jpeg"),
+            attachment(id = "png", filename = "photo.png", mimeType = "image/png"),
+            attachment(id = "bin", filename = "mystery.bin", mimeType = null),
+            attachment(id = "blank", filename = "blank.bin", mimeType = "  "),
+        )
+
+        assertEquals(
+            listOf(
+                "pdf" to "Application/PDF; charset=binary",
+                "jpg" to "image/jpeg",
+                "png" to "image/png",
+                "bin" to "application/octet-stream",
+                "blank" to "application/octet-stream",
+            ),
+            message.attachments.map { it.id to it.mimeType },
+        )
+        assertEquals(5, message.summary.attachmentCount)
+    }
+
+    @Test
+    fun toMailMessage_doesNotListPartsThatAreNotNamedAttachments() {
+        val message = messageWithAttachments(
+            GmailMessagePart(
+                mimeType = "image/jpeg",
+                filename = "",
+                headers = listOf(GmailHeader("Content-Disposition", "inline")),
+                body = GmailMessagePartBody(attachmentId = "inline-img", size = 500),
+            ),
+            GmailMessagePart(
+                filename = "ghost.pdf",
+                mimeType = "application/pdf",
+                body = GmailMessagePartBody(size = 10),
+            ),
+            attachment(id = "pdf", filename = "statement.pdf", mimeType = "application/pdf"),
+        )
+
+        assertEquals(listOf("pdf"), message.attachments.map { it.id })
+        assertEquals(listOf("application/pdf"), message.attachments.map { it.mimeType })
+        assertEquals(1, message.summary.attachmentCount)
     }
 
     @Test
@@ -301,6 +347,27 @@ class MimePayloadParsingTest {
         assertEquals("512 B", humanReadableSize(512))
         assertEquals("420 KB", humanReadableSize(430_000))
         assertEquals("2.5 MB", humanReadableSize(2_621_440))
+    }
+
+    private fun attachment(id: String, filename: String, mimeType: String?): GmailMessagePart = GmailMessagePart(
+        filename = filename,
+        mimeType = mimeType,
+        body = GmailMessagePartBody(attachmentId = id, size = 2048),
+    )
+
+    private fun messageWithAttachments(vararg parts: GmailMessagePart): MailMessage {
+        val message = GmailMessage(
+            id = "msg-1",
+            snippet = "snippet",
+            payload = GmailMessagePart(
+                mimeType = "multipart/mixed",
+                headers = listOf(GmailHeader("Subject", "Statement")),
+                parts = listOf(
+                    GmailMessagePart(mimeType = "text/plain", body = GmailMessagePartBody(data = base64UrlOf("Hi"))),
+                ) + parts,
+            ),
+        )
+        return message.toMailMessage(now)
     }
 
     private fun messageFrom(plain: String? = null, html: String? = null): MailMessage {

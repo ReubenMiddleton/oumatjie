@@ -126,6 +126,21 @@ What "verified" actually means for this snapshot, so it doesn't need to be re-de
 
 ## Decisions
 
+### Listed attachments open only when the MIME type is application/pdf (2026-10-06)
+Oumatjie already lists every message part that has a file name and an attachment id, and it
+keeps that part's MIME type. Opening ignored the type: every listed attachment was downloaded
+and handed to the PDF viewer.
+
+Opening now looks at the listed type only. `application/pdf` still downloads and opens,
+including different letter case and parameters after a semicolon. Any other listed type,
+including images and `application/octet-stream`, is not downloaded and does not open the PDF
+viewer. The reader stays on the message, which says Oumatjie can only open PDF documents.
+The file name and the file bytes are not used to decide. Parts without a file name, including
+inline images, stay unlisted. The attachment card still says Document and Open document.
+
+Image viewing, thumbnails, opening in another app, and PDFs reported with a different MIME
+type are separate decisions.
+
 ### Message links are confirmed https hand-offs, and anchor labels are never destinations (2026-10-05)
 The reading body stays plain text: `text/plain` when that part exists, otherwise HTML with the tags
 removed. Supported links are a separate list on the opened message. An anchor contributes a

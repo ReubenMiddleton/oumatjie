@@ -17,6 +17,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -144,6 +145,68 @@ class MailViewModelTest {
 
         assertNotNull(viewModel.state.value.errorMessage)
         assertNull(viewModel.state.value.downloadingAttachmentId)
+    }
+
+    @Test
+    fun openAttachment_unsupportedListedTypesStayOnTheMessageWithoutDownloadingOrOpening() = runTest {
+        listOf(
+            "image/jpeg" to "photo.jpg",
+            "image/png" to "photo.png",
+            "application/octet-stream" to "file.bin",
+            "application/octet-stream" to "file.pdf",
+            "application/x-pdf" to "document.pdf",
+            "text/calendar" to "invite.ics",
+            "image/jpeg" to "statement.pdf",
+        ).forEach { (mimeType, fileName) ->
+            assertUnsupportedAttachmentStaysClosed(mimeType, fileName)
+        }
+    }
+
+    @Test
+    fun openAttachment_pdfMimeVariantsStillDownloadAndOpen() = runTest {
+        listOf(
+            "Application/PDF" to "statement.pdf",
+            "APPLICATION/pdf" to "statement.pdf",
+            "application/pdf; charset=binary" to "statement.pdf",
+            "application/pdf; name=\"statement.pdf\"" to "statement.pdf",
+            " application/pdf ; charset=binary " to "scan.bin",
+        ).forEach { (mimeType, fileName) ->
+            assertPdfAttachmentOpens(mimeType, fileName)
+        }
+    }
+
+    @Test
+    fun openAttachment_pdfAndNonPdfOnTheSameMessageAreHandledIndependently() = runTest {
+        val repository = FakeMailRepository()
+        val pdf = repository.attachment.copy(id = "pdf", name = "statement.pdf", mimeType = "application/pdf")
+        val png = repository.attachment.copy(id = "png", name = "photo.png", mimeType = "image/png")
+        repository.message = repository.message.copy(attachments = listOf(pdf, png))
+        val downloader = FakeAttachmentDownloader(uriToReturn = "content://oumatjie/statement.pdf")
+        val viewModel = MailViewModel(repository, downloader, FakeKnownSendersRepository())
+
+        viewModel.loadInbox()
+        viewModel.openMessage(repository.message.summary.id)
+        viewModel.openAttachment(png)
+
+        assertEquals(emptyList<String>(), downloader.downloaded.map { it.id })
+        assertNull(withTimeoutOrNull(50) { viewModel.openDocumentEvents.first() })
+        assertEquals(repository.message.summary.id, viewModel.state.value.selectedMessage?.summary?.id)
+        assertEquals("Oumatjie can only open PDF documents.", viewModel.state.value.errorMessage)
+
+        viewModel.openAttachment(pdf)
+
+        assertEquals(listOf("pdf"), downloader.downloaded.map { it.id })
+        assertEquals("content://oumatjie/statement.pdf", viewModel.openDocumentEvents.first())
+        assertEquals(repository.message.summary.id, viewModel.state.value.selectedMessage?.summary?.id)
+        assertNull(viewModel.state.value.errorMessage)
+        assertNull(viewModel.state.value.downloadingAttachmentId)
+
+        viewModel.openAttachment(png)
+
+        assertEquals(listOf("pdf"), downloader.downloaded.map { it.id })
+        assertNull(withTimeoutOrNull(50) { viewModel.openDocumentEvents.first() })
+        assertEquals(repository.message.summary.id, viewModel.state.value.selectedMessage?.summary?.id)
+        assertEquals("Oumatjie can only open PDF documents.", viewModel.state.value.errorMessage)
     }
 
     @Test
@@ -511,6 +574,50 @@ class MailViewModelTest {
         assertTrue(result.isDemo)
     }
 
+    private suspend fun assertUnsupportedAttachmentStaysClosed(mimeType: String, fileName: String) {
+        val repository = FakeMailRepository()
+        val attachment = repository.attachment.copy(
+            id = "attachment-$mimeType-$fileName",
+            name = fileName,
+            mimeType = mimeType,
+        )
+        repository.message = repository.message.copy(attachments = listOf(attachment))
+        val downloader = FakeAttachmentDownloader()
+        val viewModel = MailViewModel(repository, downloader, FakeKnownSendersRepository())
+
+        viewModel.loadInbox()
+        viewModel.openMessage(repository.message.summary.id)
+        viewModel.openAttachment(attachment)
+
+        val opened = withTimeoutOrNull(50) { viewModel.openDocumentEvents.first() }
+        val state = viewModel.state.value
+        val label = "$mimeType ($fileName)"
+        assertEquals(label, emptyList<String>(), downloader.downloaded.map { it.id })
+        assertNull(label, opened)
+        assertEquals(label, repository.message.summary.id, state.selectedMessage?.summary?.id)
+        assertNull(label, state.downloadingAttachmentId)
+        assertEquals(label, "Oumatjie can only open PDF documents.", state.errorMessage)
+    }
+
+    private suspend fun assertPdfAttachmentOpens(mimeType: String, fileName: String) {
+        val repository = FakeMailRepository()
+        val attachment = repository.attachment.copy(id = "pdf", name = fileName, mimeType = mimeType)
+        repository.message = repository.message.copy(attachments = listOf(attachment))
+        val downloader = FakeAttachmentDownloader(uriToReturn = "content://oumatjie/sample.pdf")
+        val viewModel = MailViewModel(repository, downloader, FakeKnownSendersRepository())
+
+        viewModel.loadInbox()
+        viewModel.openMessage(repository.message.summary.id)
+        viewModel.openAttachment(attachment)
+
+        val label = "$mimeType ($fileName)"
+        assertEquals(label, listOf(attachment.id), downloader.downloaded.map { it.id })
+        assertEquals(label, "content://oumatjie/sample.pdf", viewModel.openDocumentEvents.first())
+        assertEquals(label, repository.message.summary.id, viewModel.state.value.selectedMessage?.summary?.id)
+        assertNull(label, viewModel.state.value.errorMessage)
+        assertNull(label, viewModel.state.value.downloadingAttachmentId)
+    }
+
     private val sampleSummary = MailSummary(
         id = "message-1",
         senderName = "Sender",
@@ -602,7 +709,10 @@ class MailViewModelTest {
         private val shouldFail: Boolean = false,
         private val delayMillis: Long = 0,
     ) : AttachmentDownloader {
+        val downloaded = mutableListOf<MailAttachment>()
+
         override suspend fun download(messageId: String, attachment: MailAttachment): String {
+            downloaded += attachment
             if (delayMillis > 0) delay(delayMillis)
             if (shouldFail) error("Could not download attachment")
             return uriToReturn
