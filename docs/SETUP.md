@@ -25,13 +25,35 @@ The first build downloads dependencies from Google's Maven repository and Maven 
 
 ### Emulator and accessibility testing notes
 
-Only needed for emulator or TalkBack work:
+Only needed for emulator or TalkBack work.
 
-- Instrumented tests: boot an emulator (headless: `emulator -avd <name> -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect`), run `./gradlew connectedDebugAndroidTest`, then `adb emu kill` and `adb kill-server`.
-- App state persists between runs. Known senders stay in DataStore, so first-contact behaviour only appears on a fresh install. Reset with `adb shell pm clear com.oumatjie.app`.
-- Screenshots: in PowerShell, `adb exec-out screencap -p > file.png` corrupts the PNG. Use `adb shell screencap -p //sdcard/s.png` then `adb pull //sdcard/s.png`.
-- To tap reliably, `adb shell uiautomator dump //sdcard/dump.xml`, pull it, and tap the midpoint of the target's `bounds`. The doubled leading slash stops Git Bash rewriting device paths.
-- TalkBack: `adb shell input tap` bypasses touch exploration, release TalkBack doesn't log what it speaks, and `uiautomator dump` doesn't expose headings. Assert heading semantics with an instrumented Compose test instead.
+Oumatjie uses the existing `granify_test` AVD on a fixed serial. Other Android work on this machine uses `emulator-5554`; do not target it, change its launch, or pick a different Oumatjie port if 5558 is busy.
+
+- Reserved target: console port `5558`, ADB port `5559`, serial `emulator-5558`.
+- The AVD's system image is the API 36 Google APIs x86_64 image in the Bubblewrap Android SDK (`androidSdkPath` in `%USERPROFILE%\.bubblewrap\config.json`). The user-level `ANDROID_HOME` is a different SDK and does not contain that image. For the emulator process only, set `ANDROID_SDK_ROOT` and `ANDROID_HOME` to that Bubblewrap SDK and start its `emulator.exe`. Do not change those variables for the user or the machine.
+
+```powershell
+$bubblewrapSdk = (Get-Content "$env:USERPROFILE\.bubblewrap\config.json" | ConvertFrom-Json).androidSdkPath
+$env:ANDROID_SDK_ROOT = $bubblewrapSdk
+$env:ANDROID_HOME = $env:ANDROID_SDK_ROOT
+& "$env:ANDROID_SDK_ROOT\emulator\emulator.exe" -avd granify_test -port 5558 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+```
+
+- Pass `-s emulator-5558` on every `adb` command. With one device attached, a bare `adb` command uses that device, which may be the work emulator. With both attached, bare `adb` errors with `more than one device/emulator`.
+- Gradle install and connected tests honor process-local `ANDROID_SERIAL`. Set it to `emulator-5558` and run Gradle with `--no-daemon`, so a daemon started without the variable cannot install onto every attached device. If `emulator-5558` is offline, `:app:installDebug` fails with `Connected device with serial 'emulator-5558' not found!`. Do not pass `--serial` to `connectedDebugAndroidTest`: on Android Gradle Plugin 9.2.0 that option throws `UnsupportedOperationException` before tests run.
+
+```powershell
+$env:ANDROID_SERIAL = 'emulator-5558'
+.\gradlew.bat --no-daemon :app:installDebug
+.\gradlew.bat --no-daemon :app:connectedDebugAndroidTest
+Remove-Item Env:ANDROID_SERIAL
+```
+
+- Stop only this emulator with `adb -s emulator-5558 emu kill`. Do not use bare `adb emu kill`. Do not run `adb kill-server`; the server on port 5037 is shared with the work emulator.
+- App state persists between runs. Known senders stay in DataStore, so first-contact behaviour only appears on a fresh install. Reset with `adb -s emulator-5558 shell pm clear com.oumatjie.app`.
+- Screenshots: in PowerShell, `adb -s emulator-5558 exec-out screencap -p > file.png` corrupts the PNG. Use `adb -s emulator-5558 shell screencap -p //sdcard/s.png` then `adb -s emulator-5558 pull //sdcard/s.png`.
+- To tap reliably, `adb -s emulator-5558 shell uiautomator dump //sdcard/dump.xml`, then `adb -s emulator-5558 pull //sdcard/dump.xml`, and tap the midpoint of the target's `bounds`. The doubled leading slash stops Git Bash rewriting device paths.
+- TalkBack: `adb -s emulator-5558 shell input tap` bypasses touch exploration, release TalkBack doesn't log what it speaks, and `uiautomator dump` doesn't expose headings. Assert heading semantics with an instrumented Compose test instead.
 
 ## 3. Google Cloud project (needed for real Gmail)
 
